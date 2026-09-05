@@ -1,12 +1,19 @@
-// Top-level build file. Plugin versions are declared here once and applied
+// Top-level build file. Plugin versions are declared once here and applied
 // (without a version) in app/build.gradle.kts.
 //
-// These four versions are a matched set -- changing one usually means changing
-// the others:
-//   Gradle 8.5  <-  AGP 8.2.2  <-  Kotlin 1.9.22  ->  Compose Compiler 1.5.10
-// If Android Studio's AGP Upgrade Assistant offers a newer set, take it as a
-// group rather than bumping one line.
+// Matched set, chosen for the toolchain actually installed on this machine
+// (Android Studio's bundled JDK 25, SDK platform 37):
+//   Gradle 9.7.1  <-  AGP 9.4.0  <-  Kotlin 2.4.10
+//
+// AGP 9 has built-in Kotlin support, so `org.jetbrains.kotlin.android` must
+// NOT be applied (AGP fails the build if it is). The Compose compiler still
+// ships as its own plugin since Kotlin 2.0, replacing the old
+// `composeOptions { kotlinCompilerExtensionVersion }` block.
+//
+// Room uses KSP, not kapt: kapt is explicitly incompatible with AGP's
+// built-in Kotlin support.
 plugins {
-    id("com.android.application") version "8.2.2" apply false
-    id("org.jetbrains.kotlin.android") version "1.9.22" apply false
+    id("com.android.application") version "9.4.0" apply false
+    id("org.jetbrains.kotlin.plugin.compose") version "2.4.10" apply false
+    id("com.google.devtools.ksp") version "2.3.11" apply false
 }

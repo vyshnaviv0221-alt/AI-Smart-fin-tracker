@@ -31,7 +31,7 @@ abstract class AppDatabase : RoomDatabase() {
                     "expense_database"
                 )
                     // Only the pre-release dev schemas are discarded.
-                    .fallbackToDestructiveMigrationFrom(1, 2)
+                    .fallbackToDestructiveMigrationFrom(dropAllTables = true, 1, 2)
                     .build()
                 INSTANCE = instance
                 instance

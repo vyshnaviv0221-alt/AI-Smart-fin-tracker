@@ -15,6 +15,10 @@ import androidx.security.crypto.MasterKey
  * fallback -- losing encryption is better than the app refusing to start, and
  * the token is short-lived either way.
  */
+@Suppress("DEPRECATION")  // androidx.security-crypto is deprecated wholesale
+                          // with no drop-in replacement. Still the best
+                          // available option for keeping the token off disk in
+                          // plaintext; revisit if AndroidX ships a successor.
 class SessionStore(context: Context) {
 
     private companion object {
