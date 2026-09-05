@@ -3,6 +3,7 @@ package com.example.aismartexpensetracker.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
@@ -21,6 +22,8 @@ import androidx.navigation.NavController
 @Composable
 fun MenuScreen(navController: NavController) {
     Scaffold(
+        // Insets are already applied at the root (MainActivity).
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
                 title = { Text(text = "Smart Expense Tracker", color = Color(0xFF534AB7)) },
