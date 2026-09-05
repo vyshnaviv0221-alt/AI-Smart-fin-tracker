@@ -42,31 +42,41 @@ class MainActivity : ComponentActivity() {
 /**
  * Route names match the strings MenuScreen already navigates to.
  *
- * One ExpenseViewModel is hoisted here and shared by the screens that read
- * transactions, so the dashboard and the transactions list are guaranteed to
- * show the same data (they observe the same Room Flow either way, but sharing
- * the instance avoids duplicate collectors).
+ * The ExpenseViewModel is created once here and passed to every screen.
+ * Calling viewModel() inside each NavHost destination would instead scope a
+ * separate instance to each back-stack entry: Room-backed data would still
+ * agree (same database), but in-memory state -- the Supabase session, sync
+ * status, forecast results -- would not. Signing in on Login would then leave
+ * Profile still showing "Not signed in".
  */
 @Composable
 private fun AppNavHost() {
     val navController = rememberNavController()
-    val expenseViewModel: ExpenseViewModel = viewModel()
+    val vm: ExpenseViewModel = viewModel()
 
     NavHost(navController = navController, startDestination = "dashboard") {
-        composable("dashboard") {
-            DashboardScreen(navController = navController, viewModel = expenseViewModel)
-        }
+        composable("dashboard") { DashboardScreen(navController = navController, viewModel = vm) }
         composable("menu") { MenuScreen(navController) }
-        composable("transactions") { TransactionsScreen(viewModel = expenseViewModel) }
-        composable("budgets") { BudgetScreen() }
-        composable("analytics") { AnalyticsScreen() }
-        composable("predictions") { PredictionsScreen() }
-        composable("recommendations") { RecommendationsScreen() }
+        composable("transactions") { TransactionsScreen(viewModel = vm) }
+        composable("budgets") { BudgetScreen(viewModel = vm) }
+        composable("analytics") { AnalyticsScreen(viewModel = vm) }
+        composable("predictions") { PredictionsScreen(viewModel = vm) }
+        composable("recommendations") { RecommendationsScreen(viewModel = vm) }
         composable("profile") {
-            ProfileScreen(onLogout = { navController.navigate("login") })
+            ProfileScreen(
+                onLogout = { navController.navigate("login") },
+                viewModel = vm
+            )
         }
         composable("login") {
-            LoginScreen(onLoginSuccess = { navController.navigate("dashboard") })
+            LoginScreen(
+                onLoginSuccess = {
+                    navController.navigate("dashboard") {
+                        popUpTo("login") { inclusive = true }
+                    }
+                },
+                viewModel = vm
+            )
         }
     }
 }

@@ -136,13 +136,51 @@ print(f"-> Best categorizer: {best_name} ({best_score:.3f} accuracy)")
 joblib.dump(best_model, f"{OUT_DIR}/categorizer.joblib")
 
 # =====================================================================
-# 2) Anomaly detection — amount -> normal / UNUSUAL
-#    (never persisted in the original repo; trained fresh here)
+# 2) Anomaly detection — (merchant_text, amount) -> normal / UNUSUAL
+#
+#    Category-aware, mirroring model/training/anomaly_detection.py.
+#    Fitting on the raw amount alone made the detector flag *every* Rent
+#    payment and nothing else, because rent legitimately costs ~20x a coffee.
+#    Each transaction is instead reduced to one feature: how far its log
+#    amount sits from that category's own median, in robust (MAD) units.
 # =====================================================================
+MAD_TO_SIGMA = 1.4826
+MIN_SCALE = 0.05
+
+
+def fit_category_stats(frame):
+    stats = {}
+    for category, group in frame.groupby("category"):
+        logs = np.log1p(group["amount"].to_numpy(dtype=float))
+        median = float(np.median(logs))
+        mad = float(np.median(np.abs(logs - median)))
+        stats[category] = {"median": median, "scale": max(mad * MAD_TO_SIGMA, MIN_SCALE)}
+    all_logs = np.log1p(frame["amount"].to_numpy(dtype=float))
+    gm = float(np.median(all_logs))
+    stats["__global__"] = {
+        "median": gm,
+        "scale": max(float(np.median(np.abs(all_logs - gm))) * MAD_TO_SIGMA, MIN_SCALE),
+    }
+    return stats
+
+
+def deviation_scores(amounts, categories, stats):
+    fallback = stats["__global__"]
+    return np.asarray([
+        (float(np.log1p(float(a))) - stats.get(c, fallback)["median"])
+        / stats.get(c, fallback)["scale"]
+        for a, c in zip(amounts, categories)
+    ]).reshape(-1, 1)
+
+
+category_stats = fit_category_stats(df)
 anomaly_model = IsolationForest(contamination=0.03, random_state=42)
-anomaly_model.fit(df[["amount"]])
+anomaly_model.fit(deviation_scores(df["amount"], df["category"], category_stats))
+
 joblib.dump(anomaly_model, f"{OUT_DIR}/anomaly.joblib")
-print("-> Anomaly model trained and saved")
+with open(f"{OUT_DIR}/anomaly_category_stats.json", "w") as f:
+    json.dump(category_stats, f, indent=2)
+print("-> Anomaly model trained and saved (category-aware)")
 
 # =====================================================================
 # 3) Monthly forecast — (Month, Category) -> predicted amount

@@ -13,7 +13,9 @@ AI-SMART-FINANCE-TRACKER/
 ├── server/          ← FastAPI REST API serving the three models
 ├── model/           ← ML training scripts
 │   ├── training/
-│   └── artifacts/   ← generated, git-ignored
+│   ├── artifacts/   ← trained models, git-ignored
+│   └── evaluation/  ← confusion matrix, metrics JSON
+├── supabase/        ← schema.sql (tables + row-level security)
 └── database/        ← Datasets
     ├── raw/
     ├── processed/   ← generated
@@ -26,19 +28,33 @@ AI-SMART-FINANCE-TRACKER/
 Notification (bank / UPI app)
   → ExpenseNotificationListener → ExpenseParser (regex)
   → ExpenseRepository.captureExpense()
-      ├─ Room insert (local, always — survives server being down)
-      ├─ POST /categorize → category
-      ├─ POST /anomaly    → unusual flag
-      └─ Firestore sync (if signed in)
-  → Dashboard renders from the Room Flow
+      ├─ duplicate check (same merchant+amount within 60s)
+      ├─ Room insert with an on-device keyword category  (always works offline)
+      ├─ POST /categorize → better category, if confidence >= 0.50
+      ├─ POST /anomaly    → unusual flag, judged within the category
+      └─ Supabase sync (if signed in)
+  → Every screen renders from the same Room Flow
 ```
+
+The app is **offline-first**: Room is the source of truth, the ML server only
+refines what is already saved, and Supabase sync is optional. Killing the
+server mid-demo degrades categorisation to on-device keywords rather than
+breaking anything.
 
 ## Components
 
 ### `client/` — Android App
-Jetpack Compose app that reads **notifications** (not SMS) from payment apps,
-parses amount and merchant with regex, stores transactions in Room, and enriches
-them by calling the server.
+Jetpack Compose app that reads **notifications** from an allowlist of payment,
+banking and messaging apps, parses amount and merchant with regex, stores
+transactions in Room, and enriches them by calling the server. Budgets,
+analytics, predictions and recommendations are all computed from the user's own
+captured data — no screen ships with sample values.
+
+Cloud sync uses **Supabase** (GoTrue auth + PostgREST) over plain REST, reusing
+the app's existing Retrofit stack. Run `supabase/schema.sql` in your project,
+then set `supabase.url` and `supabase.anonKey` in `client/local.properties`
+(see `client/local.properties.example`). Without them the app runs fine,
+just without cloud sync.
 
 ### `server/` — Backend API
 FastAPI backend exposing `/categorize`, `/anomaly`, and `/predict`.
@@ -56,7 +72,8 @@ Raw and processed CSVs, stored via Git LFS. Run `git lfs pull` after cloning.
 
 | Layer | Technology |
 |---|---|
-| Android Client | Kotlin, Jetpack Compose, Room, Retrofit, Firebase |
+| Android Client | Kotlin, Jetpack Compose, Room, Retrofit |
+| Auth & cloud sync | Supabase (GoTrue + PostgREST) via REST |
 | Backend Server | Python, FastAPI, Uvicorn |
 | ML Models | scikit-learn, joblib, pandas, numpy |
 | Local storage | Room (SQLite) on device |
@@ -65,16 +82,15 @@ Raw and processed CSVs, stored via Git LFS. Run `git lfs pull` after cloning.
 
 Honest status, so nothing here is a surprise:
 
-- **The Android app does not build yet.** `client/` is missing its Gradle
-  scaffolding (`settings.gradle.kts`, root `build.gradle.kts`, wrapper), the app
-  build file has a corrupted name, `navigation-compose` is imported but not
-  declared, and the `google-services` plugin is not applied so Firebase will not
-  initialise.
-- **The server runs and returns real predictions**, but its models are trained on
-  synthetic data by `train_server_models.py`. Replacing them with models trained
-  on the real datasets is the main outstanding ML work.
-- **Most screens under `client/.../ui/` are unwired mockups** with hardcoded
-  sample data, and are not currently reachable — there is no `NavHost`, and
-  `MainActivity` renders only the dashboard.
-- `requirements.txt` pins `numpy 1.26.4` / `pandas 2.2.2`, which have no wheels
-  for Python 3.14 — use a 3.11 or 3.12 virtual environment.
+- **The Android app has not been compiled yet.** The Gradle scaffolding is in
+  place but no machine here has a JDK or Android SDK, so `./gradlew` has never
+  run. Expect to iterate on the AGP/Kotlin version matrix on first sync.
+- **The server runs and all 17 endpoint tests pass.** Its models are still
+  trained on synthetic data by `train_server_models.py`; the real training
+  scripts in `model/training/` run correctly and write to `model/artifacts/`.
+- **The expense forecaster is weak and the code says so.** Out-of-fold R2 is
+  ~0.11 against a per-category-mean baseline of ~0.10. Monthly household spend
+  is dominated by irregular one-off purchases. `predict_expense.py` prints the
+  baseline comparison on every run — quote that, not the forecast alone.
+- **Do not train on `database/upi_transactions/`** — 10,000 rows but only 29
+  distinct templates. See `database/README.md`.

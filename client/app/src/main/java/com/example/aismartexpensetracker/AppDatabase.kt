@@ -5,12 +5,19 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-// version bumped to 2 for the new `category` / `isAnomaly` columns.
-// fallbackToDestructiveMigration() wipes local data on upgrade -- fine while
-// still in development; replace with a real Migration before shipping.
-@Database(entities = [Expense::class], version = 2, exportSchema = false)
+/**
+ * v3 adds the `budgets` table and changes `expenses.amount` from TEXT to REAL.
+ *
+ * Versions 1 and 2 only ever existed on development machines -- the app has
+ * never been released -- so those are dropped rather than migrated. From v3
+ * onward every schema change needs a real Migration, because by then the
+ * database holds automatically captured transactions the user cannot recreate.
+ */
+@Database(entities = [Expense::class, Budget::class], version = 3, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
+
     abstract fun expenseDao(): ExpenseDao
+    abstract fun budgetDao(): BudgetDao
 
     companion object {
         @Volatile
@@ -23,7 +30,8 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "expense_database"
                 )
-                    .fallbackToDestructiveMigration()
+                    // Only the pre-release dev schemas are discarded.
+                    .fallbackToDestructiveMigrationFrom(1, 2)
                     .build()
                 INSTANCE = instance
                 instance

@@ -20,7 +20,7 @@ model/
 | Model | Script | Task |
 |---|---|---|
 | Transaction Categorizer | `train_categorization_model_final.py` | merchant text → one of 10 categories |
-| Anomaly Detector | `anomaly_detection.py` | flag unusual transaction amounts |
+| Anomaly Detector | `anomaly_detection.py` | flag amounts unusual **for their category** |
 | Expense Forecaster | `predict_expense.py` | predict monthly spend per category |
 
 ## Usage
@@ -62,5 +62,38 @@ uses `cross_val_predict` and reports both MAE and RMSE, written to
 `evaluation/forecaster_metrics.json`.
 
 **Sample size is the limitation to state in the report.** The categorizer's test
-set is the held-out portion of 54 hand-labelled rows (~17 rows), so quote the
-count next to any percentage.
+set is the held-out portion of 54 hand-labelled rows (17 rows), so quote the
+count next to any percentage: "94% (16/17 held-out real transactions)".
+
+## Measured results
+
+Regenerate with the three commands above; everything below is written to
+`evaluation/` on each run.
+
+**Categorizer** — logistic regression, 637 training rows (37 real + 600
+synthetic), tested on 17 held-out **real** rows:
+accuracy 0.94, macro-F1 0.95. Both errors are one Food and one Shopping
+confusion; see `evaluation/categorizer_confusion_matrix.png`.
+
+**Forecaster** — out-of-fold over 299 month-category rows (22 categories,
+45 months):
+
+| predictor | R2 | MAE | RMSE |
+|---|---|---|---|
+| RandomForest, category only | **0.107** | **Rs 1955** | Rs 6762 |
+| RandomForest, month + category | -0.243 | Rs 2172 | Rs 6784 |
+| baseline: per-category mean | 0.101 | Rs 1961 | Rs 6767 |
+| baseline: global mean | 0.000 | Rs 2037 | Rs 6845 |
+
+The model barely beats a per-category mean, and adding the month makes it
+clearly worse. That is the honest finding: monthly household spend is dominated
+by irregular one-off purchases. Lag features and per-category time series were
+also tested and did not help.
+
+**Anomaly detector** — the amount-only version flagged 20 transactions of which
+**all 20 were Rent** (31.7% of every rent payment) and found nothing in the
+other nine categories: it had learned "rent is expensive". Scoring each
+transaction by how far its log amount sits from its own category's median (in
+MAD units) spreads flags across 7 categories and correctly separates
+Rs 15,000 on Rent (normal) from Rs 15,000 on Food (unusual). See
+`evaluation/anomaly_flags_by_category.csv`.

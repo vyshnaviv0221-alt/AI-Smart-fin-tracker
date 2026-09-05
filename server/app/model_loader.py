@@ -16,6 +16,7 @@ MODELS_DIR = Path(__file__).resolve().parent.parent / "models"
 
 _categorizer = None
 _anomaly_model = None
+_anomaly_stats = None
 _forecaster = None
 _forecaster_columns = None
 
@@ -26,7 +27,7 @@ class ModelLoadError(RuntimeError):
 
 def load_all_models() -> None:
     """Call once at server startup (see main.py's startup event)."""
-    global _categorizer, _anomaly_model, _forecaster, _forecaster_columns
+    global _categorizer, _anomaly_model, _anomaly_stats, _forecaster, _forecaster_columns
 
     try:
         _categorizer = joblib.load(MODELS_DIR / "categorizer.joblib")
@@ -43,9 +44,12 @@ def load_all_models() -> None:
 
     try:
         _anomaly_model = joblib.load(MODELS_DIR / "anomaly.joblib")
+        with open(MODELS_DIR / "anomaly_category_stats.json") as f:
+            _anomaly_stats = json.load(f)
     except FileNotFoundError as e:
         raise ModelLoadError(
-            "anomaly.joblib not found. Run train_server_models.py first."
+            "anomaly.joblib / anomaly_category_stats.json not found. "
+            "Run train_server_models.py first."
         ) from e
 
     try:
@@ -60,7 +64,16 @@ def load_all_models() -> None:
 
 
 def models_ready() -> bool:
-    return all([_categorizer, _anomaly_model, _forecaster, _forecaster_columns])
+    return all(
+        item is not None
+        for item in (
+            _categorizer,
+            _anomaly_model,
+            _anomaly_stats,
+            _forecaster,
+            _forecaster_columns,
+        )
+    )
 
 
 def predict_category(merchant_text: str) -> tuple[str, float]:
@@ -71,10 +84,26 @@ def predict_category(merchant_text: str) -> tuple[str, float]:
     return category, confidence
 
 
-def predict_anomaly(amount: float) -> str:
-    """Returns 'normal' or 'UNUSUAL'."""
-    flag = _anomaly_model.predict([[amount]])[0]  # -1 = anomaly, 1 = normal
-    return "UNUSUAL" if flag == -1 else "normal"
+def predict_anomaly(amount: float, merchant_text: str = "") -> tuple[str, str, float]:
+    """
+    Returns (status, category_used, deviation).
+
+    The category matters: an amount is only unusual relative to what that
+    category normally costs. Rent at 15,000 is normal; Food at 15,000 is not.
+    When merchant_text is empty the global distribution is used instead.
+    """
+    category = "__global__"
+    if merchant_text.strip():
+        try:
+            category = _categorizer.predict([merchant_text])[0]
+        except Exception:
+            category = "__global__"
+
+    stats = _anomaly_stats.get(category, _anomaly_stats["__global__"])
+    deviation = (float(np.log1p(float(amount))) - stats["median"]) / stats["scale"]
+
+    flag = _anomaly_model.predict([[deviation]])[0]  # -1 = anomaly, 1 = normal
+    return ("UNUSUAL" if flag == -1 else "normal"), category, round(float(deviation), 2)
 
 
 def predict_monthly_amount(month: int, category: str) -> float:

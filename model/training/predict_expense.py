@@ -3,7 +3,24 @@ AI-Based Smart Expense Tracker
 Model 2: Monthly Expense Forecaster
 
 Pipeline: household transactions -> monthly totals per category
-          -> one-hot(Month, Category) -> RandomForest -> log(amount)
+          -> one-hot(Category) -> RandomForest -> log1p(amount)
+
+Why the Month feature was dropped
+---------------------------------
+The original design used one-hot(Month, Category). Measured out-of-fold against
+the same folds, the month feature actively hurt:
+
+    Month + Category   R2 = 0.015    MAE = Rs 2004
+    Category only      R2 = 0.107    MAE = Rs 1955
+    baseline (category mean)  R2 = 0.101    MAE = Rs 1961
+
+With 45 months and 22 categories, each (month, category) cell holds ~3
+observations, so the month split fits noise. Category-only is the only variant
+that beats a trivial per-category-mean baseline. The comparison is recomputed
+and printed on every run, so the claim stays checkable.
+
+Lag features (previous month, 3-month rolling mean, expanding category mean)
+were also tested and made it worse; they are not included.
 
 Output is written to model/artifacts/ and model/evaluation/.
 """
@@ -14,18 +31,17 @@ import numpy as np
 import pandas as pd
 import joblib
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.model_selection import KFold, cross_val_predict, cross_val_score
-from sklearn.metrics import mean_absolute_error, mean_squared_error
+from sklearn.model_selection import KFold, cross_val_predict
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 from paths import ARTIFACTS, EVALUATION, RAW, require
 
-print("=" * 60)
+print("=" * 62)
 print("   AI-SMART FINANCE TRACKER - EXPENSE PREDICTION ENGINE   ")
-print("=" * 60)
+print("=" * 62)
 
 # 1. Load dataset
-dataset_file = require(RAW / "Daily Household Transactions.csv")
-df = pd.read_csv(dataset_file)
+df = pd.read_csv(require(RAW / "Daily Household Transactions.csv"))
 
 # 2. Filter expenses & clean dates
 if 'Income/Expense' in df.columns:
@@ -38,84 +54,120 @@ df = df.dropna(subset=['Date'])
 cat_monthly = df.groupby([df['Date'].dt.to_period('M'), 'Category'])['Amount'].sum().reset_index()
 cat_monthly['Month'] = cat_monthly['Date'].dt.month
 
-# 4. Feature encoding
-X_raw = pd.get_dummies(cat_monthly[['Month', 'Category']], columns=['Category'], drop_first=False)
 y_log = np.log1p(cat_monthly['Amount'])
-feature_cols = X_raw.columns.tolist()
-
-# 5. Train model
-model = RandomForestRegressor(
-    n_estimators=150,
-    max_depth=5,
-    min_samples_split=3,
-    random_state=42
-)
-model.fit(X_raw, y_log)
-
-# 6. Evaluate -- out-of-fold predictions only.
-#
-#    The earlier version computed MAE from model.predict(X_raw), i.e. on the
-#    same rows the model was fitted on, which understates the error. Since MAE
-#    is the headline rupee figure in the report, it has to come from folds that
-#    did not see the row. cross_val_predict does exactly that.
-kf = KFold(n_splits=5, shuffle=True, random_state=42)
-r2_scores = cross_val_score(model, X_raw, y_log, cv=kf, scoring='r2')
-
-y_oof_actual = np.expm1(cross_val_predict(model, X_raw, y_log, cv=kf))
 y_true = cat_monthly['Amount']
 
-mae = mean_absolute_error(y_true, y_oof_actual)
-rmse = float(np.sqrt(mean_squared_error(y_true, y_oof_actual)))
-r2 = float(np.mean(r2_scores))
+# 4. Feature encodings -- the final model uses category only (see module docstring)
+X_category = pd.get_dummies(cat_monthly[['Category']], columns=['Category'], drop_first=False)
+X_month_category = pd.get_dummies(cat_monthly[['Month', 'Category']], columns=['Category'], drop_first=False)
+feature_cols = X_category.columns.tolist()
 
-print("\n--- MODEL ACCURACY METRICS (5-fold cross-validated) ---")
+kf = KFold(n_splits=5, shuffle=True, random_state=42)
+
+
+def make_model():
+    return RandomForestRegressor(n_estimators=400, min_samples_leaf=1, random_state=42)
+
+
+def score_oof(pred_log):
+    """All metrics are out-of-fold; nothing here is measured on training rows."""
+    pred_actual = np.expm1(pred_log)
+    return {
+        "r2": round(float(r2_score(y_log, pred_log)), 4),
+        "mae_rupees": round(float(mean_absolute_error(y_true, pred_actual)), 2),
+        "rmse_rupees": round(float(np.sqrt(mean_squared_error(y_true, pred_actual))), 2),
+    }
+
+
+def baseline_category_mean():
+    """Predict each category's historical mean. The bar the model must clear."""
+    preds = np.zeros(len(cat_monthly))
+    for train_idx, test_idx in kf.split(X_category):
+        train_log = y_log.iloc[train_idx]
+        overall = train_log.mean()
+        means = train_log.groupby(cat_monthly.iloc[train_idx]['Category']).mean()
+        preds[test_idx] = (
+            cat_monthly.iloc[test_idx]['Category'].map(means).fillna(overall).to_numpy()
+        )
+    return preds
+
+
+# 5. Compare candidates on identical folds
+results = {
+    "randomforest_category_only": score_oof(cross_val_predict(make_model(), X_category, y_log, cv=kf)),
+    "randomforest_month_category": score_oof(cross_val_predict(make_model(), X_month_category, y_log, cv=kf)),
+    "baseline_category_mean": score_oof(baseline_category_mean()),
+    "baseline_global_mean": score_oof(np.full(len(cat_monthly), y_log.mean())),
+}
+
+print("\n--- MODEL COMPARISON (5-fold, out-of-fold predictions) ---")
 print(f"Samples (month x category) : {len(cat_monthly)}")
-print(f"R2 Score                   : {r2:.4f} ({r2 * 100:.1f}% variance explained)")
-print(f"MAE                        : Rs {mae:.2f}")
-print(f"RMSE                       : Rs {rmse:.2f}")
+print(f"Distinct categories        : {cat_monthly['Category'].nunique()}")
+print(f"Distinct months            : {cat_monthly['Date'].nunique()}")
+print()
+print(f"{'predictor':<32}{'R2':>9}{'MAE (Rs)':>12}{'RMSE (Rs)':>12}")
+print("-" * 65)
+for name, m in results.items():
+    print(f"{name:<32}{m['r2']:>9.4f}{m['mae_rupees']:>12.2f}{m['rmse_rupees']:>12.2f}")
 
-# 7. Save model + metrics
+chosen = results["randomforest_category_only"]
+baseline = results["baseline_category_mean"]
+print(
+    f"\nChosen model beats the per-category-mean baseline by "
+    f"{chosen['r2'] - baseline['r2']:+.4f} R2 and "
+    f"Rs {baseline['mae_rupees'] - chosen['mae_rupees']:.2f} MAE."
+)
+print(
+    "\nNOTE: R2 is low in absolute terms. Monthly household spend is dominated by\n"
+    "      irregular one-off purchases, so a large share of the variance is not\n"
+    "      predictable from category history alone. Quote the baseline comparison\n"
+    "      rather than the forecast figure on its own."
+)
+
+# 6. Fit the chosen model on all data and save
+model = make_model()
+model.fit(X_category, y_log)
+
 joblib.dump(model, ARTIFACTS / "final_expense_model.pkl")
 with open(ARTIFACTS / "final_expense_model_columns.json", "w") as f:
     json.dump(feature_cols, f)
 
-metrics = {
-    "model": "RandomForestRegressor",
-    "target": "log1p(monthly amount per category)",
-    "samples": int(len(cat_monthly)),
-    "cv_folds": 5,
-    "r2": round(r2, 4),
-    "mae_rupees": round(float(mae), 2),
-    "rmse_rupees": round(rmse, 2),
-    "note": "MAE and RMSE are out-of-fold (cross_val_predict), not in-sample.",
-}
 with open(EVALUATION / "forecaster_metrics.json", "w") as f:
-    json.dump(metrics, f, indent=2)
+    json.dump(
+        {
+            "model": "RandomForestRegressor (category one-hot only)",
+            "target": "log1p(monthly amount per category)",
+            "samples": int(len(cat_monthly)),
+            "categories": int(cat_monthly['Category'].nunique()),
+            "months": int(cat_monthly['Date'].nunique()),
+            "cv_folds": 5,
+            "results": results,
+            "month_feature_dropped_because": (
+                "one-hot(Month, Category) scored worse than category alone on identical "
+                "folds; ~3 observations per (month, category) cell means the month split "
+                "fits noise."
+            ),
+            "note": "All metrics are out-of-fold (cross_val_predict), never in-sample.",
+        },
+        f,
+        indent=2,
+    )
 
 print(f"\nModel exported   -> {ARTIFACTS / 'final_expense_model.pkl'}")
 print(f"Metrics exported -> {EVALUATION / 'forecaster_metrics.json'}")
 
 # =========================================================
-# 8. Live prediction demo
+# 7. Live prediction demo
 # =========================================================
-print("\n" + "=" * 60)
-print("         UPCOMING MONTHLY EXPENSE FORECASTS        ")
-print("=" * 60)
+print("\n" + "=" * 62)
+print("         EXPECTED MONTHLY SPEND BY CATEGORY        ")
+print("=" * 62 + "\n")
 
-target_month = 11
-categories_to_predict = df['Category'].value_counts().head(5).index.tolist()
-
-print(f"\n[AI forecast for month #{target_month}]:\n")
-
-for cat in categories_to_predict:
-    input_data = pd.DataFrame(0, index=[0], columns=feature_cols)
-    input_data['Month'] = target_month
-
+for cat in df['Category'].value_counts().head(5).index:
+    row = pd.DataFrame(0, index=[0], columns=feature_cols)
     cat_col = f"Category_{cat}"
-    if cat_col in input_data.columns:
-        input_data[cat_col] = 1
+    if cat_col in row.columns:
+        row[cat_col] = 1
+    print(f"  {cat:<20} : Rs {np.expm1(model.predict(row)[0]):10.2f}")
 
-    predicted_amount = np.expm1(model.predict(input_data)[0])
-    print(f"  {cat:<20} : Rs {predicted_amount:10.2f}")
-
-print("\n" + "=" * 60)
+print("\n" + "=" * 62)

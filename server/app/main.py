@@ -65,11 +65,15 @@ async def detect_anomaly(req: TransactionRequest):
         raise HTTPException(status_code=400, detail="amount cannot be negative")
 
     try:
-        status = model_loader.predict_anomaly(req.amount)
+        status, category, deviation = model_loader.predict_anomaly(
+            req.amount, req.merchant_text
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Anomaly check failed: {e}")
 
-    return AnomalyResponse(amount=req.amount, status=status)
+    return AnomalyResponse(
+        amount=req.amount, status=status, category=category, deviation=deviation
+    )
 
 
 @app.post("/predict", response_model=PredictionResponse)

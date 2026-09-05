@@ -10,6 +10,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -20,36 +22,26 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.aismartexpensetracker.ExpenseViewModel
 
-// ============================================================
-// Local theme colors (self-contained — same pattern as
-// LoginScreen.kt). No dependency on ui/theme/Theme.kt.
-// ============================================================
 private val AnaPurpleDark = Color(0xFF3C3489)
 private val AnaBgGray = Color(0xFFF7F6FA)
 private val AnaTextSecondary = Color(0xFF757575)
 private val AnaTrackGray = Color(0xFFE0DDE8)
-private val AnaCategoryFood = Color(0xFF534AB7)
-private val AnaCategoryTravel = Color(0xFF1D9E75)
-private val AnaCategoryBills = Color(0xFFD85A30)
-private val AnaCategoryShopping = Color(0xFFD4537E)
-private val AnaCategoryEntertainment = Color(0xFF378ADD)
 
 data class CategorySpend(
     val category: String,
-    val amount: Int,
+    val amount: Double,
     val color: Color
 )
 
 @Composable
-fun AnalyticsScreen() {
-    val spendData = listOf(
-        CategorySpend("Food", 5200, AnaCategoryFood),
-        CategorySpend("Travel", 3100, AnaCategoryTravel),
-        CategorySpend("Bills", 6400, AnaCategoryBills),
-        CategorySpend("Shopping", 3540, AnaCategoryShopping),
-        CategorySpend("Entertainment", 1200, AnaCategoryEntertainment)
-    )
+fun AnalyticsScreen(viewModel: ExpenseViewModel = viewModel()) {
+    // categoryTotals is already this month's spend, grouped and sorted.
+    val totals by viewModel.categoryTotals.collectAsState()
+    val spendData = totals.map { CategorySpend(it.category, it.amount, colorFor(it.category)) }
+
     val total = spendData.sumOf { it.amount }
 
     Column(
@@ -59,19 +51,28 @@ fun AnalyticsScreen() {
             .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
-        Text(
-            "Analytics",
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            color = AnaPurpleDark
-        )
+        Text("Analytics", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = AnaPurpleDark)
         Spacer(Modifier.height(4.dp))
-        Text(
-            "This month's spending by category",
-            fontSize = 14.sp,
-            color = AnaTextSecondary
-        )
+        Text("This month, by category", fontSize = 14.sp, color = AnaTextSecondary)
         Spacer(Modifier.height(20.dp))
+
+        // Guard: every ratio below divides by `total`, so an empty database
+        // would produce NaN sweep angles and an invisible chart.
+        if (spendData.isEmpty() || total <= 0.0) {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(20.dp)) {
+                    Text("No spending data yet", fontWeight = FontWeight.Bold, color = AnaPurpleDark)
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "Add an expense or let the notification listener capture one, " +
+                            "then this chart fills in.",
+                        fontSize = 13.sp,
+                        color = AnaTextSecondary
+                    )
+                }
+            }
+            return@Column
+        }
 
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(
@@ -84,32 +85,22 @@ fun AnalyticsScreen() {
                     DonutChart(spendData, total)
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
-                            "₹$total",
+                            "₹${"%,.0f".format(total)}",
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Bold,
                             color = AnaPurpleDark
                         )
-                        Text(
-                            "Total spent",
-                            fontSize = 12.sp,
-                            color = AnaTextSecondary
-                        )
+                        Text("Total spent", fontSize = 12.sp, color = AnaTextSecondary)
                     }
                 }
             }
         }
 
         Spacer(Modifier.height(20.dp))
-
-        Text(
-            "Breakdown",
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
-            color = AnaPurpleDark
-        )
+        Text("Breakdown", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AnaPurpleDark)
         Spacer(Modifier.height(12.dp))
 
-        spendData.sortedByDescending { it.amount }.forEach { item ->
+        spendData.forEach { item ->
             CategoryBar(item, total)
             Spacer(Modifier.height(12.dp))
         }
@@ -117,7 +108,7 @@ fun AnalyticsScreen() {
 }
 
 @Composable
-private fun DonutChart(data: List<CategorySpend>, total: Int) {
+private fun DonutChart(data: List<CategorySpend>, total: Double) {
     val strokeWidth = 28.dp
     Canvas(modifier = Modifier.size(180.dp)) {
         var startAngle = -90f
@@ -129,7 +120,7 @@ private fun DonutChart(data: List<CategorySpend>, total: Int) {
         val arcSize = Size(diameter - strokeWidth.toPx(), diameter - strokeWidth.toPx())
 
         data.forEach { item ->
-            val sweep = (item.amount.toFloat() / total) * 360f
+            val sweep = (item.amount / total * 360.0).toFloat()
             drawArc(
                 color = item.color,
                 startAngle = startAngle,
@@ -145,8 +136,8 @@ private fun DonutChart(data: List<CategorySpend>, total: Int) {
 }
 
 @Composable
-private fun CategoryBar(item: CategorySpend, total: Int) {
-    val percent = (item.amount.toFloat() / total.toFloat()).coerceIn(0f, 1f)
+private fun CategoryBar(item: CategorySpend, total: Double) {
+    val percent = (item.amount / total).coerceIn(0.0, 1.0).toFloat()
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp)) {
@@ -163,10 +154,14 @@ private fun CategoryBar(item: CategorySpend, total: Int) {
                             .background(item.color)
                     )
                     Spacer(Modifier.width(8.dp))
-                    Text(item.category, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    Text(
+                        "${emojiFor(item.category)} ${item.category}",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp
+                    )
                 }
                 Text(
-                    "₹${item.amount}  •  ${(percent * 100).toInt()}%",
+                    "₹${"%,.0f".format(item.amount)}  •  ${(percent * 100).toInt()}%",
                     fontSize = 13.sp,
                     color = AnaTextSecondary
                 )

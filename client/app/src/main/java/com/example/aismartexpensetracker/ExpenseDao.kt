@@ -18,4 +18,16 @@ interface ExpenseDao {
 
     @Query("UPDATE expenses SET isAnomaly = :isAnomaly WHERE id = :id")
     suspend fun updateAnomalyFlag(id: Int, isAnomaly: Boolean)
+
+    @Query("DELETE FROM expenses WHERE id = :id")
+    suspend fun deleteExpense(id: Int)
+
+    @Query("SELECT * FROM expenses WHERE id = :id")
+    suspend fun findById(id: Int): Expense?
+
+    /** Used to suppress duplicate captures when a bank posts the same alert twice. */
+    @Query(
+        "SELECT COUNT(*) FROM expenses WHERE merchant = :merchant AND amount = :amount AND date >= :since"
+    )
+    suspend fun countRecentDuplicates(merchant: String, amount: Double, since: Long): Int
 }

@@ -71,6 +71,10 @@ fun TransactionsScreen(viewModel: ExpenseViewModel = viewModel()) {
             onPick = { newCategory ->
                 viewModel.correctCategory(expense.id, newCategory)
                 editing = null
+            },
+            onDelete = {
+                viewModel.deleteExpense(expense.id)
+                editing = null
             }
         )
     }
@@ -122,7 +126,12 @@ private fun TransactionRow(expense: Expense, formattedDate: String, onClick: () 
                     }
                 }
             }
-            Text("-₹${expense.amount}", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = TxnRed)
+            Text(
+                "-₹${"%,.0f".format(expense.amount)}",
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                color = TxnRed
+            )
         }
     }
 }
@@ -138,7 +147,8 @@ private fun TransactionRow(expense: Expense, formattedDate: String, onClick: () 
 private fun CategoryCorrectionDialog(
     expense: Expense,
     onDismiss: () -> Unit,
-    onPick: (String) -> Unit
+    onPick: (String) -> Unit,
+    onDelete: () -> Unit
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -146,7 +156,7 @@ private fun CategoryCorrectionDialog(
         text = {
             Column {
                 Text(
-                    "${expense.merchant} · ₹${expense.amount}",
+                    "${expense.merchant} · ₹${"%,.0f".format(expense.amount)}",
                     fontSize = 13.sp,
                     color = TxnTextSecondary
                 )
@@ -181,6 +191,9 @@ private fun CategoryCorrectionDialog(
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = {
+            TextButton(onClick = onDelete) { Text("Delete", color = TxnRed) }
+        }
     )
 }
