@@ -16,12 +16,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.aismartexpensetracker.CloudState
 import com.example.aismartexpensetracker.ExpenseViewModel
-
-private val LoginPurpleDark = Color(0xFF3C3489)
-private val LoginPurpleMid = Color(0xFF534AB7)
-private val LoginBgGray = Color(0xFFF7F6FA)
-private val LoginTextSecondary = Color(0xFF757575)
-private val LoginErrorRed = Color(0xFFD32F2F)
+import com.example.aismartexpensetracker.ui.components.AppCard
+import com.example.aismartexpensetracker.ui.theme.*
 
 /**
  * Supabase email/password authentication (GoTrue).
@@ -71,35 +67,30 @@ fun LoginScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(LoginBgGray)
+            .background(Canvas)
             .padding(24.dp),
         verticalArrangement = Arrangement.Center
     ) {
-        Text(
-            "Smart Expense Tracker",
-            fontSize = 26.sp,
-            fontWeight = FontWeight.Bold,
-            color = LoginPurpleDark
-        )
-        Spacer(Modifier.height(4.dp))
+        Text("Smart Expense\nTracker", style = DisplayStyle, color = Ink)
+        Spacer(Modifier.height(Space.sm))
         Text(
             if (isRegisterMode) "Create an account to sync across devices"
             else "Sign in to sync across devices",
-            fontSize = 14.sp,
-            color = LoginTextSecondary
+            style = BodyStyle,
+            color = InkMuted
         )
 
         if (!viewModel.cloudConfigured) {
             Spacer(Modifier.height(16.dp))
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(14.dp)) {
-                    Text("Cloud sync not configured", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                    Spacer(Modifier.height(4.dp))
+            AppCard(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(Space.lg)) {
+                    Text("Cloud sync not configured", style = RowTitleStyle, color = Ink)
+                    Spacer(Modifier.height(Space.xs))
                     Text(
                         "Add supabase.url and supabase.anonKey to client/local.properties " +
                             "and rebuild. Everything else works without it.",
-                        fontSize = 12.sp,
-                        color = LoginTextSecondary
+                        style = CaptionStyle,
+                        color = InkMuted
                     )
                 }
             }
@@ -131,7 +122,7 @@ fun LoginScreen(
 
         errorText?.let {
             Spacer(Modifier.height(8.dp))
-            Text(it, color = LoginErrorRed, fontSize = 13.sp)
+            Text(it, style = CaptionStyle, color = Danger)
         }
 
         Spacer(Modifier.height(20.dp))
@@ -142,7 +133,8 @@ fun LoginScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = LoginPurpleMid)
+            shape = Radius.chip,
+            colors = ButtonDefaults.buttonColors(containerColor = Indigo500)
         ) {
             if (busy) {
                 CircularProgressIndicator(
@@ -151,7 +143,7 @@ fun LoginScreen(
                     color = Color.White
                 )
             } else {
-                Text(if (isRegisterMode) "Register" else "Sign in", fontSize = 16.sp)
+                Text(if (isRegisterMode) "Register" else "Sign in", style = RowTitleStyle)
             }
         }
 
@@ -165,8 +157,8 @@ fun LoginScreen(
             Text(
                 if (isRegisterMode) "Already have an account? Sign in"
                 else "Don't have an account? Register",
-                color = LoginPurpleDark,
-                fontSize = 13.sp
+                color = Ink,
+                style = CaptionStyle
             )
         }
 
@@ -175,7 +167,7 @@ fun LoginScreen(
             enabled = !busy,
             modifier = Modifier.align(Alignment.CenterHorizontally)
         ) {
-            Text("Skip — use without an account", color = LoginTextSecondary, fontSize = 13.sp)
+            Text("Skip — use without an account", color = InkMuted, style = CaptionStyle)
         }
     }
 }

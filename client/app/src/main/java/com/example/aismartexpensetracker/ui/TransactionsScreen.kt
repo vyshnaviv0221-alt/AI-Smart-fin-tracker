@@ -5,67 +5,73 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.aismartexpensetracker.CategoryKeywords
 import com.example.aismartexpensetracker.Expense
 import com.example.aismartexpensetracker.ExpenseViewModel
+import com.example.aismartexpensetracker.ui.components.*
+import com.example.aismartexpensetracker.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.Locale
-
-private val TxnPurpleDark = Color(0xFF3C3489)
-private val TxnBgGray = Color(0xFFF7F6FA)
-private val TxnTextSecondary = Color(0xFF757575)
-private val TxnRed = Color(0xFFD32F2F)
-private val TxnChipBg = Color(0xFFEEEDFE)
 
 @Composable
 fun TransactionsScreen(viewModel: ExpenseViewModel = viewModel()) {
     val expenses by viewModel.expenses.collectAsState()
     val dateFormat = remember { SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()) }
 
-    // Human-in-the-Loop: the transaction currently being re-categorized.
+    // Human-in-the-Loop: the transaction currently being re-categorised.
     var editing by remember { mutableStateOf<Expense?>(null) }
 
     Column(
         Modifier
             .fillMaxSize()
-            .background(TxnBgGray)
-            .padding(16.dp)
+            .background(Canvas)
+            .padding(horizontal = Space.lg)
     ) {
-        Text("Transactions", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TxnPurpleDark)
-        Spacer(Modifier.height(4.dp))
-        Text(
-            if (expenses.isEmpty()) "No transactions captured yet"
-            else "${expenses.size} captured · tap one to correct its category",
-            fontSize = 13.sp,
-            color = TxnTextSecondary
+        Spacer(Modifier.height(Space.sm))
+        ScreenTitle(
+            text = "Transactions",
+            subtitle = if (expenses.isEmpty()) "Nothing captured yet"
+            else "${expenses.size} captured · tap one to correct its category"
         )
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(Space.xl))
 
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            items(expenses, key = { it.id }) { expense ->
-                TransactionRow(
-                    expense = expense,
-                    formattedDate = dateFormat.format(expense.date),
-                    onClick = { editing = expense }
-                )
+        if (expenses.isEmpty()) {
+            EmptyState(
+                icon = "🧾",
+                title = "No transactions yet",
+                message = "Grant notification access in Profile to capture bank and " +
+                    "UPI alerts automatically, or add one by hand from the dashboard."
+            )
+        } else {
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(Space.md),
+                contentPadding = PaddingValues(bottom = Space.xxxl)
+            ) {
+                items(expenses, key = { it.id }) { expense ->
+                    PressableCard(
+                        onClick = { editing = expense },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        TransactionRow(expense, dateFormat.format(expense.date))
+                    }
+                }
             }
         }
     }
 
     editing?.let { expense ->
-        CategoryCorrectionDialog(
+        CategoryCorrectionSheet(
             expense = expense,
             onDismiss = { editing = null },
             onPick = { newCategory ->
@@ -81,119 +87,116 @@ fun TransactionsScreen(viewModel: ExpenseViewModel = viewModel()) {
 }
 
 @Composable
-private fun TransactionRow(expense: Expense, formattedDate: String, onClick: () -> Unit) {
-    Card(
-        modifier = Modifier
+private fun TransactionRow(expense: Expense, formattedDate: String) {
+    Row(
+        Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .padding(Space.lg),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
+        CategoryAvatar(expense.category)
+        Spacer(Modifier.width(Space.md))
+        Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    Modifier
-                        .size(38.dp)
-                        .clip(CircleShape)
-                        .background(TxnBgGray),
-                    contentAlignment = Alignment.Center
-                ) { Text(emojiFor(expense.category), fontSize = 16.sp) }
-                Spacer(Modifier.width(12.dp))
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(expense.merchant, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                        if (expense.isAnomaly) {
-                            Spacer(Modifier.width(6.dp))
-                            Text("UNUSUAL", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = TxnRed)
-                        }
-                    }
-                    Spacer(Modifier.height(2.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(TxnChipBg)
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        ) {
-                            Text(expense.category, fontSize = 10.sp, color = TxnPurpleDark)
-                        }
-                        Spacer(Modifier.width(6.dp))
-                        Text(formattedDate, fontSize = 11.sp, color = TxnTextSecondary)
-                    }
+                Text(expense.merchant, style = RowTitleStyle, color = Ink)
+                if (expense.isAnomaly) {
+                    Spacer(Modifier.width(Space.sm))
+                    UnusualBadge()
                 }
             }
-            Text(
-                "-₹${"%,.0f".format(expense.amount)}",
-                fontWeight = FontWeight.Bold,
-                fontSize = 14.sp,
-                color = TxnRed
-            )
+            Spacer(Modifier.height(Space.sm))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                CategoryChip(expense.category)
+                Spacer(Modifier.width(Space.sm))
+                Text(formattedDate, style = CaptionStyle, color = InkFaint)
+            }
         }
+        Spacer(Modifier.width(Space.sm))
+        Text("−${rupees(expense.amount)}", style = RowTitleStyle, color = Ink)
     }
 }
 
 /**
- * Human-in-the-Loop correction step (implementation plan §4.2, §10).
+ * Human-in-the-Loop correction (implementation plan sections 4.2 and 10).
  *
- * When the classifier gets a category wrong the user overrides it here. The
- * write goes through ExpenseDao.updateCategory, so every screen reading the
- * same Room Flow updates at once.
+ * The current category is marked rather than merely highlighted, so the
+ * screen answers "what is it now?" before "what could it be?". Committing a
+ * correction fires a haptic: it is a real state change the user should feel,
+ * and it is the one place in this screen where feedback is earned.
  */
 @Composable
-private fun CategoryCorrectionDialog(
+private fun CategoryCorrectionSheet(
     expense: Expense,
     onDismiss: () -> Unit,
     onPick: (String) -> Unit,
     onDelete: () -> Unit
 ) {
+    val haptics = LocalHapticFeedback.current
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Correct category") },
+        shape = Radius.sheet,
+        containerColor = SurfaceWhite,
+        title = { Text("Correct category", style = SectionStyle, color = Ink) },
         text = {
             Column {
-                Text(
-                    "${expense.merchant} · ₹${"%,.0f".format(expense.amount)}",
-                    fontSize = 13.sp,
-                    color = TxnTextSecondary
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    "Currently: ${expense.category}",
-                    fontSize = 12.sp,
-                    color = TxnTextSecondary
-                )
-                Spacer(Modifier.height(12.dp))
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    items(CategoryKeywords.ALL_CATEGORIES) { category ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CategoryAvatar(expense.category, size = 36.dp)
+                    Spacer(Modifier.width(Space.md))
+                    Column {
+                        Text(expense.merchant, style = RowTitleStyle, color = Ink)
+                        Text(
+                            "${rupees(expense.amount)} · currently ${expense.category}",
+                            style = CaptionStyle,
+                            color = InkMuted
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(Space.lg))
+                RowDivider()
+                Spacer(Modifier.height(Space.sm))
+
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    CategoryKeywords.ALL_CATEGORIES.forEach { category ->
+                        val selected = category == expense.category
                         Row(
                             Modifier
                                 .fillMaxWidth()
-                                .clickable { onPick(category) }
-                                .padding(vertical = 10.dp),
+                                .clip(Radius.chip)
+                                .clickable {
+                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    onPick(category)
+                                }
+                                .background(if (selected) Indigo50 else SurfaceWhite)
+                                .padding(horizontal = Space.sm, vertical = Space.md),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(emojiFor(category), fontSize = 16.sp)
-                            Spacer(Modifier.width(12.dp))
+                            CategoryAvatar(category, size = 32.dp)
+                            Spacer(Modifier.width(Space.md))
                             Text(
                                 category,
-                                fontSize = 14.sp,
-                                fontWeight = if (category == expense.category) FontWeight.Bold
-                                else FontWeight.Normal,
-                                color = if (category == expense.category) TxnPurpleDark
-                                else Color.Unspecified
+                                style = RowTitleStyle,
+                                color = if (selected) Indigo700 else Ink,
+                                modifier = Modifier.weight(1f)
                             )
+                            if (selected) {
+                                Text("Current", style = LabelStyle, color = Indigo500)
+                            }
                         }
                     }
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", style = RowTitleStyle, color = InkMuted)
+            }
+        },
         dismissButton = {
-            TextButton(onClick = onDelete) { Text("Delete", color = TxnRed) }
+            TextButton(onClick = onDelete) {
+                Text("Delete", style = RowTitleStyle, color = Danger)
+            }
         }
     )
 }

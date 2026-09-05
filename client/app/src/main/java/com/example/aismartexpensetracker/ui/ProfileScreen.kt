@@ -13,11 +13,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -25,13 +22,8 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.aismartexpensetracker.CloudState
 import com.example.aismartexpensetracker.ExpenseViewModel
-
-private val ProfPurpleDark = Color(0xFF3C3489)
-private val ProfPurpleMid = Color(0xFF534AB7)
-private val ProfBgGray = Color(0xFFF7F6FA)
-private val ProfTextSecondary = Color(0xFF757575)
-private val ProfDangerRed = Color(0xFFD32F2F)
-private val ProfGood = Color(0xFF1D9E75)
+import com.example.aismartexpensetracker.ui.components.*
+import com.example.aismartexpensetracker.ui.theme.*
 
 private fun isListenerEnabled(context: Context): Boolean =
     NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
@@ -48,7 +40,7 @@ fun ProfileScreen(
     var listenerEnabled by remember { mutableStateOf(isListenerEnabled(context)) }
     var showLogoutConfirm by remember { mutableStateOf(false) }
 
-    // Re-check on resume: the user grants access in system Settings and comes back.
+    // Re-check on resume: the user grants access in system Settings and returns.
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -63,172 +55,189 @@ fun ProfileScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(ProfBgGray)
+            .background(Canvas)
             .verticalScroll(rememberScrollState())
-            .padding(16.dp)
+            .padding(horizontal = Space.lg)
     ) {
-        Text(
-            "Profile & Settings",
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            color = ProfPurpleDark
-        )
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(Space.sm))
+        ScreenTitle(text = "Profile", subtitle = "Account, sync and permissions")
+        Spacer(Modifier.height(Space.xl))
 
         // ---- Account ----
-        Card(Modifier.fillMaxWidth()) {
-            Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
+        AppCard(Modifier.fillMaxWidth()) {
+            Row(Modifier.padding(Space.xl), verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     Modifier
                         .size(52.dp)
                         .clip(CircleShape)
-                        .background(ProfPurpleMid),
+                        .background(Indigo500),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         (email?.firstOrNull() ?: '?').uppercaseChar().toString(),
-                        color = Color.White,
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold
+                        style = StatStyle,
+                        color = SurfaceWhite
                     )
                 }
-                Spacer(Modifier.width(16.dp))
+                Spacer(Modifier.width(Space.lg))
                 Column {
-                    Text(
-                        email ?: "Not signed in",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
-                        color = ProfPurpleDark
-                    )
+                    Text(email ?: "Not signed in", style = RowTitleStyle, color = Ink)
+                    Spacer(Modifier.height(Space.xxs))
                     Text(
                         when {
-                            email != null -> "Signed in with Supabase"
-                            !viewModel.cloudConfigured ->
-                                "Cloud sync not configured — saved on this device only"
-                            else -> "Not signed in — saved on this device only"
+                            email != null -> "Synced with Supabase"
+                            !viewModel.cloudConfigured -> "Cloud sync not configured"
+                            else -> "Saved on this device only"
                         },
-                        fontSize = 12.sp,
-                        color = ProfTextSecondary
+                        style = CaptionStyle,
+                        color = InkMuted
                     )
                 }
             }
         }
 
         if (email != null) {
-            Spacer(Modifier.height(12.dp))
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(18.dp)) {
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(Modifier.weight(1f)) {
-                            Text("Cloud sync", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                            Spacer(Modifier.height(2.dp))
-                            Text(
-                                when (val s = cloudState) {
-                                    is CloudState.Busy -> "Syncing…"
-                                    is CloudState.Message -> s.text
-                                    else -> "Push local transactions to Supabase"
-                                },
-                                fontSize = 12.sp,
-                                color = if ((cloudState as? CloudState.Message)?.isError == true)
-                                    ProfDangerRed else ProfTextSecondary
-                            )
-                        }
-                        Button(
-                            onClick = { viewModel.syncNow() },
-                            enabled = cloudState !is CloudState.Busy
-                        ) { Text("Sync") }
+            Spacer(Modifier.height(Space.md))
+            AppCard(Modifier.fillMaxWidth()) {
+                Row(
+                    Modifier.padding(Space.xl),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Cloud sync", style = RowTitleStyle, color = Ink)
+                        Spacer(Modifier.height(Space.xxs))
+                        Text(
+                            when (val s = cloudState) {
+                                is CloudState.Busy -> "Syncing…"
+                                is CloudState.Message -> s.text
+                                else -> "Push local transactions to Supabase"
+                            },
+                            style = CaptionStyle,
+                            color = if ((cloudState as? CloudState.Message)?.isError == true)
+                                Danger else InkMuted
+                        )
                     }
+                    Spacer(Modifier.width(Space.md))
+                    Button(
+                        onClick = { viewModel.syncNow() },
+                        enabled = cloudState !is CloudState.Busy,
+                        shape = Radius.chip,
+                        colors = ButtonDefaults.buttonColors(containerColor = Indigo500)
+                    ) { Text("Sync", style = RowTitleStyle) }
                 }
             }
         }
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(Space.md))
 
-        // ---- Notification access: the app cannot capture anything without it ----
-        Card(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(18.dp)) {
+        // ---- Notification access: nothing is captured without it ----
+        AppCard(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(Space.xl)) {
                 Row(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(Modifier.weight(1f)) {
-                        Text("Notification access", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                        Spacer(Modifier.height(2.dp))
+                        Text("Notification access", style = RowTitleStyle, color = Ink)
+                        Spacer(Modifier.height(Space.xxs))
                         Text(
                             if (listenerEnabled) "Granted — capturing bank and UPI alerts"
                             else "Not granted — automatic capture is off",
-                            fontSize = 12.sp,
-                            color = if (listenerEnabled) ProfGood else ProfDangerRed
+                            style = CaptionStyle,
+                            color = if (listenerEnabled) Success else Danger
                         )
                     }
                     if (!listenerEnabled) {
-                        Button(onClick = {
-                            context.startActivity(
-                                Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
-                            )
-                        }) { Text("Grant") }
+                        Spacer(Modifier.width(Space.md))
+                        Button(
+                            onClick = {
+                                context.startActivity(
+                                    Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+                                )
+                            },
+                            shape = Radius.chip,
+                            colors = ButtonDefaults.buttonColors(containerColor = Indigo500)
+                        ) { Text("Grant", style = RowTitleStyle) }
                     }
                 }
                 if (!listenerEnabled) {
-                    Spacer(Modifier.height(10.dp))
+                    Spacer(Modifier.height(Space.md))
                     Text(
                         "Find “AI SMART EXPENSE TRACKER” in the list and enable it. " +
                             "Only notifications from payment and banking apps are read; " +
                             "no credentials, PINs or OTPs are accessed.",
-                        fontSize = 12.sp,
-                        color = ProfTextSecondary
+                        style = CaptionStyle,
+                        color = InkMuted
                     )
                 }
             }
         }
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(Space.xxl))
+        SectionHeader("Your data")
 
-        // ---- Real usage stats ----
-        Text("Your data", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = ProfPurpleDark)
-        Spacer(Modifier.height(12.dp))
-        Card(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(4.dp)) {
-                StatRow("Transactions captured", stats.transactionCount.toString())
-                HorizontalDivider()
-                StatRow("Categories used", stats.categoriesUsed.toString())
-                HorizontalDivider()
-                StatRow("Spent this month", "₹${"%,.0f".format(stats.totalSpentThisMonth)}")
-                HorizontalDivider()
-                StatRow("Spent all time", "₹${"%,.0f".format(stats.totalSpentAllTime)}")
-                HorizontalDivider()
-                StatRow("Flagged unusual", stats.anomalyCount.toString())
-                HorizontalDivider()
-                StatRow("Budgets set", stats.budgetsSet.toString())
+        AppCard(Modifier.fillMaxWidth()) {
+            val rows = listOf(
+                "Transactions captured" to stats.transactionCount.toString(),
+                "Categories used" to stats.categoriesUsed.toString(),
+                "Spent this month" to rupees(stats.totalSpentThisMonth),
+                "Spent all time" to rupees(stats.totalSpentAllTime),
+                "Flagged unusual" to stats.anomalyCount.toString(),
+                "Budgets set" to stats.budgetsSet.toString()
+            )
+            rows.forEachIndexed { index, (label, value) ->
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = Space.lg, vertical = Space.lg),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(label, style = BodyStyle, color = InkMuted)
+                    Text(value, style = RowTitleStyle, color = Ink)
+                }
+                if (index != rows.lastIndex) RowDivider(Modifier.padding(horizontal = Space.lg))
             }
         }
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(Space.xxl))
 
         OutlinedButton(
             onClick = { showLogoutConfirm = true },
             modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = ProfDangerRed)
-        ) { Text(if (email != null) "Sign out" else "Go to sign in") }
+            shape = Radius.chip,
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = Danger)
+        ) {
+            Text(
+                if (email != null) "Sign out" else "Go to sign in",
+                style = RowTitleStyle
+            )
+        }
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(Space.xxxl))
     }
 
     if (showLogoutConfirm) {
         AlertDialog(
             onDismissRequest = { showLogoutConfirm = false },
-            title = { Text(if (email != null) "Sign out?" else "Go to sign in?") },
+            shape = Radius.sheet,
+            containerColor = SurfaceWhite,
+            title = {
+                Text(
+                    if (email != null) "Sign out?" else "Go to sign in?",
+                    style = SectionStyle,
+                    color = Ink
+                )
+            },
             text = {
                 Text(
                     if (email != null)
-                        "Your transactions stay on this device. Cloud sync stops until " +
-                            "you sign in again."
-                    else "You'll be taken to the sign-in screen."
+                        "Your transactions stay on this device. Cloud sync stops " +
+                            "until you sign in again."
+                    else "You'll be taken to the sign-in screen.",
+                    style = BodyStyle,
+                    color = InkMuted
                 )
             },
             confirmButton = {
@@ -236,24 +245,13 @@ fun ProfileScreen(
                     if (email != null) viewModel.signOut()
                     showLogoutConfirm = false
                     onLogout()
-                }) { Text("Continue") }
+                }) { Text("Continue", style = RowTitleStyle, color = Danger) }
             },
             dismissButton = {
-                TextButton(onClick = { showLogoutConfirm = false }) { Text("Cancel") }
+                TextButton(onClick = { showLogoutConfirm = false }) {
+                    Text("Cancel", style = RowTitleStyle, color = InkMuted)
+                }
             }
         )
-    }
-}
-
-@Composable
-private fun StatRow(label: String, value: String) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 14.dp, vertical = 14.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(label, fontSize = 14.sp, color = ProfTextSecondary)
-        Text(value, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = ProfPurpleDark)
     }
 }
