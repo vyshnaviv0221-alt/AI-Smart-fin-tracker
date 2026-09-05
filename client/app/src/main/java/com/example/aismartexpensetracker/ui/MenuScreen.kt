@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -38,7 +39,7 @@ fun MenuScreen(navController: NavController) {
                 }
             }
             item {
-                MenuItem(icon = Icons.Default.List, title = "Transactions") {
+                MenuItem(icon = Icons.AutoMirrored.Filled.List, title = "Transactions") {
                     navController.navigate("transactions")
                 }
             }
@@ -93,7 +94,7 @@ fun MenuItem(icon: ImageVector, title: String, onClick: () -> Unit) {
                 style = MaterialTheme.typography.bodyLarge
             )
         }
-        Divider(
+        HorizontalDivider(
             modifier = Modifier.fillMaxWidth(),
             thickness = 1.dp,
             color = Color.LightGray.copy(alpha = 0.4f)
