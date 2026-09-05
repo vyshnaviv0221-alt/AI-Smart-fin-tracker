@@ -2,148 +2,98 @@ package com.example.aismartexpensetracker.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.aismartexpensetracker.ExpenseViewModel
+import com.example.aismartexpensetracker.Insight
+import com.example.aismartexpensetracker.InsightLevel
+import com.example.aismartexpensetracker.ui.components.*
+import com.example.aismartexpensetracker.ui.theme.*
 
-// ============================================================
-// Local theme colors (self-contained, prefixed to avoid any
-// clash with colors declared elsewhere — same pattern as
-// LoginScreen.kt / PredictionsScreen.kt).
-// ============================================================
-private val RecPurpleDark = Color(0xFF3C3489)
-private val RecPurpleMid = Color(0xFF534AB7)
-private val RecBgGray = Color(0xFFF7F6FA)
-private val RecTextSecondary = Color(0xFF757575)
-private val RecWarningBg = Color(0xFFFDF1DC)
-private val RecWarningText = Color(0xFFB05B00)
-private val RecDangerBg = Color(0xFFFBE9E9)
-private val RecDangerText = Color(0xFFD32F2F)
-private val RecGoodBg = Color(0xFFEAF3DE)
-private val RecGoodText = Color(0xFF3B6D11)
-
-data class Recommendation(
-    val icon: String,
-    val title: String,
-    val message: String,
-    val tone: Tone
-)
-
-enum class Tone { GOOD, WARNING, DANGER, NEUTRAL }
-
+/**
+ * Every card here is generated from the user's own transactions and budgets by
+ * ExpenseViewModel.buildInsights -- there are no canned tips. When there is
+ * nothing genuine to say the screen says so rather than inventing advice.
+ */
 @Composable
-fun RecommendationsScreen() {
-    // Sample rule-based tips — replace with real logic once category
-    // spend data is available from Room (e.g. "if category X > 90% of
-    // its budget limit, generate a WARNING tip").
-    val tips = listOf(
-        Recommendation(
-            "🛍️", "Shopping is over budget",
-            "You've spent ₹540 more than your Shopping limit this month. Consider pausing non-essential purchases.",
-            Tone.DANGER
-        ),
-        Recommendation(
-            "🧾", "Bills nearing the limit",
-            "You're at 98% of your Bills budget. One more payment could push you over.",
-            Tone.WARNING
-        ),
-        Recommendation(
-            "🍔", "Food spending is up 12%",
-            "Your Food expenses this month are higher than your 3-month average. A few home-cooked days could help.",
-            Tone.WARNING
-        ),
-        Recommendation(
-            "🚕", "Travel is under control",
-            "You're comfortably within your Travel budget — ₹900 left with 5 days remaining in the month.",
-            Tone.GOOD
-        ),
-        Recommendation(
-            "💡", "Try the 50/30/20 rule",
-            "Based on your income pattern, allocating 50% to needs, 30% to wants, and 20% to savings could improve your monthly balance.",
-            Tone.NEUTRAL
-        )
-    )
+fun RecommendationsScreen(viewModel: ExpenseViewModel = viewModel()) {
+    val insights by viewModel.insights.collectAsState()
 
     Column(
-        modifier = Modifier
+        Modifier
             .fillMaxSize()
-            .background(RecBgGray)
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp)
+            .background(Canvas)
+            .padding(horizontal = Space.lg)
     ) {
-        Text(
-            "Recommendations",
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            color = RecPurpleDark
+        Spacer(Modifier.height(Space.sm))
+        ScreenTitle(
+            text = "Recommendations",
+            subtitle = if (insights.isEmpty()) "Nothing to flag right now"
+            else "From this month's spending and your budgets"
         )
-        Spacer(Modifier.height(4.dp))
-        Text(
-            "Insights based on your spending patterns",
-            fontSize = 14.sp,
-            color = RecTextSecondary
-        )
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(Space.xl))
 
-        tips.forEach { tip ->
-            RecommendationCard(tip)
-            Spacer(Modifier.height(12.dp))
+        if (insights.isEmpty()) {
+            EmptyState(
+                icon = "💡",
+                title = "No recommendations yet",
+                message = "Capture a few transactions and set some limits. Advice " +
+                    "appears here only when your own data supports it."
+            )
+        } else {
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(Space.md),
+                contentPadding = PaddingValues(bottom = Space.xxxl)
+            ) {
+                items(insights) { InsightCard(it) }
+            }
         }
     }
 }
 
 @Composable
-private fun RecommendationCard(item: Recommendation) {
-    val (bg, textColor) = when (item.tone) {
-        Tone.GOOD -> RecGoodBg to RecGoodText
-        Tone.WARNING -> RecWarningBg to RecWarningText
-        Tone.DANGER -> RecDangerBg to RecDangerText
-        Tone.NEUTRAL -> Color(0xFFEEEDFE) to RecPurpleMid
+private fun InsightCard(insight: Insight) {
+    val accent: Color = when (insight.level) {
+        InsightLevel.GOOD -> Success
+        InsightLevel.WARNING -> Warning
+        InsightLevel.DANGER -> Danger
+        InsightLevel.NEUTRAL -> Indigo500
+    }
+    val soft: Color = when (insight.level) {
+        InsightLevel.GOOD -> SuccessSoft
+        InsightLevel.WARNING -> WarningSoft
+        InsightLevel.DANGER -> DangerSoft
+        InsightLevel.NEUTRAL -> Indigo50
     }
 
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .padding(14.dp),
-            verticalAlignment = Alignment.Top
-        ) {
+    AppCard(Modifier.fillMaxWidth()) {
+        Row(Modifier.padding(Space.lg)) {
             Box(
                 Modifier
-                    .size(36.dp)
+                    .size(42.dp)
                     .clip(CircleShape)
-                    .background(bg),
+                    .background(soft),
                 contentAlignment = Alignment.Center
-            ) {
-                Text(item.icon, fontSize = 16.sp)
-            }
-            Spacer(Modifier.width(12.dp))
+            ) { Text(insight.icon, style = BodyStyle) }
+
+            Spacer(Modifier.width(Space.md))
+
             Column(Modifier.weight(1f)) {
-                Text(
-                    item.title,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                    color = RecPurpleDark
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    item.message,
-                    fontSize = 13.sp,
-                    color = RecTextSecondary,
-                    lineHeight = 18.sp
-                )
+                Text(insight.title, style = RowTitleStyle, color = accent)
+                Spacer(Modifier.height(Space.xs))
+                Text(insight.message, style = CaptionStyle, color = InkMuted)
             }
         }
     }
 }
-

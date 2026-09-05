@@ -1,227 +1,184 @@
 package com.example.aismartexpensetracker.ui
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.aismartexpensetracker.CategoryForecast
+import com.example.aismartexpensetracker.ExpenseViewModel
+import com.example.aismartexpensetracker.ForecastState
+import com.example.aismartexpensetracker.ui.components.*
+import com.example.aismartexpensetracker.ui.theme.*
 
-// ============================================================
-// Local theme colors (self-contained, prefixed to avoid any
-// clash with colors declared elsewhere in the project — same
-// pattern as LoginScreen.kt).
-// ============================================================
-private val PredPurpleDark = Color(0xFF3C3489)
-private val PredPurpleMid = Color(0xFF534AB7)
-private val PredBgGray = Color(0xFFF7F6FA)
-private val PredTextSecondary = Color(0xFF757575)
-private val PredWarning = Color(0xFFF9A825)
-private val PredWarningText = Color(0xFFB05B00)
-private val PredTrackGray = Color(0xFFE0DDE8)
-
-data class MonthTrend(val label: String, val amount: Int)
-data class CategoryPrediction(
-    val category: String,
-    val icon: String,
-    val lastMonth: Int,
-    val predicted: Int
+private val MONTH_NAMES = listOf(
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
 )
 
+/**
+ * Calls POST /predict on the FastAPI server for each category the user has
+ * spent in. This is the only screen that exercises the forecaster, so it needs
+ * the server running -- failures are shown explicitly rather than silently
+ * falling back to sample numbers.
+ */
 @Composable
-fun PredictionsScreen() {
-    // Sample data — replace with real history from Room once available
-    val trend = listOf(
-        MonthTrend("May", 14200),
-        MonthTrend("Jun", 15800),
-        MonthTrend("Jul", 16500),
-        MonthTrend("Aug", 17100),
-        MonthTrend("Sep (predicted)", 18400)
-    )
+fun PredictionsScreen(viewModel: ExpenseViewModel = viewModel()) {
+    val state by viewModel.forecastState.collectAsState()
 
-    val categoryPredictions = listOf(
-        CategoryPrediction("Food", "🍔", 5200, 5600),
-        CategoryPrediction("Travel", "🚕", 3100, 3400),
-        CategoryPrediction("Bills", "🧾", 6400, 6500),
-        CategoryPrediction("Shopping", "🛍️", 3540, 4100)
-    )
-
-    val predictedTotal = trend.last().amount
-    val lastMonthTotal = trend[trend.size - 2].amount
-    val changePercent = ((predictedTotal - lastMonthTotal).toFloat() / lastMonthTotal * 100)
+    LaunchedEffect(Unit) { viewModel.loadForecasts() }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(PredBgGray)
+            .background(Canvas)
             .verticalScroll(rememberScrollState())
-            .padding(16.dp)
+            .padding(horizontal = Space.lg)
     ) {
-        Text(
-            "Predictions",
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            color = PredPurpleDark
+        Spacer(Modifier.height(Space.sm))
+        ScreenTitle(
+            text = "Predictions",
+            subtitle = "From the forecasting model on the server"
         )
-        Spacer(Modifier.height(4.dp))
-        Text(
-            "Estimated spending based on your recent trend",
-            fontSize = 14.sp,
-            color = PredTextSecondary
-        )
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(Space.xl))
 
-        // ---- Predicted total card ----
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(20.dp)) {
-                Text("Predicted spend this month", fontSize = 13.sp, color = PredTextSecondary)
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    "₹$predictedTotal",
-                    fontSize = 30.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = PredPurpleDark
-                )
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    if (changePercent >= 0)
-                        "▲ ${"%.1f".format(changePercent)}% higher than last month"
-                    else
-                        "▼ ${"%.1f".format(-changePercent)}% lower than last month",
-                    fontSize = 13.sp,
-                    color = if (changePercent >= 0) PredWarningText else PredPurpleMid
-                )
-
-                Spacer(Modifier.height(20.dp))
-                TrendLineChart(trend)
-                Spacer(Modifier.height(8.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    trend.forEach {
-                        Text(
-                            it.label.replace(" (predicted)", "*"),
-                            fontSize = 10.sp,
-                            color = PredTextSecondary
-                        )
+        when (val s = state) {
+            is ForecastState.Idle, is ForecastState.Loading -> {
+                AppCard(Modifier.fillMaxWidth()) {
+                    Row(
+                        Modifier.padding(Space.xl),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = Indigo500)
+                        Spacer(Modifier.width(Space.md))
+                        Text("Asking the model…", style = BodyStyle, color = InkMuted)
                     }
                 }
             }
+
+            is ForecastState.Error -> {
+                AppCard(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(Space.xl)) {
+                        Text("Predictions unavailable", style = RowTitleStyle, color = Danger)
+                        Spacer(Modifier.height(Space.sm))
+                        Text(s.message, style = CaptionStyle, color = InkMuted)
+                        Spacer(Modifier.height(Space.lg))
+                        Button(
+                            onClick = { viewModel.loadForecasts() },
+                            shape = Radius.chip,
+                            colors = ButtonDefaults.buttonColors(containerColor = Indigo500)
+                        ) { Text("Retry", style = RowTitleStyle) }
+                    }
+                }
+            }
+
+            is ForecastState.Ready -> {
+                val monthName = MONTH_NAMES.getOrElse(s.month - 1) { "next month" }
+                val predictedTotal = s.forecasts.sumOf { it.predicted }
+                val spentTotal = s.forecasts.sumOf { it.spentSoFar }
+
+                AppCard(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(Space.xl)) {
+                        Text("Predicted for $monthName", style = CaptionStyle, color = InkMuted)
+                        Spacer(Modifier.height(Space.xs))
+                        Text(rupees(predictedTotal), style = AmountStyle, color = Indigo900)
+                        Spacer(Modifier.height(Space.sm))
+                        if (spentTotal > 0.0) {
+                            val change = (predictedTotal - spentTotal) / spentTotal * 100
+                            Text(
+                                if (change >= 0)
+                                    "▲ ${"%.0f".format(change)}% above what you've spent so far"
+                                else "▼ ${"%.0f".format(-change)}% below what you've spent so far",
+                                style = CaptionStyle,
+                                color = if (change >= 0) Warning else Success
+                            )
+                        }
+                        Spacer(Modifier.height(Space.md))
+                        Text(
+                            "Across ${s.forecasts.size} " +
+                                if (s.forecasts.size == 1) "category" else "categories",
+                            style = CaptionStyle,
+                            color = InkFaint
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(Space.xxl))
+                SectionHeader("By category")
+
+                AppCard(Modifier.fillMaxWidth()) {
+                    s.forecasts.forEachIndexed { index, item ->
+                        ForecastRow(item)
+                        if (index != s.forecasts.lastIndex) {
+                            RowDivider(Modifier.padding(start = 68.dp))
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(Space.lg))
+                Text(
+                    "The forecaster explains only a small share of month-to-month " +
+                        "variance — household spending is dominated by irregular " +
+                        "one-off purchases. Treat these as indicative.",
+                    style = CaptionStyle,
+                    color = InkFaint
+                )
+            }
         }
 
-        Spacer(Modifier.height(20.dp))
-
-        Text(
-            "Category-wise predictions",
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
-            color = PredPurpleDark
-        )
-        Spacer(Modifier.height(12.dp))
-
-        categoryPredictions.forEach { item ->
-            CategoryPredictionCard(item)
-            Spacer(Modifier.height(12.dp))
-        }
+        Spacer(Modifier.height(Space.xxxl))
     }
 }
 
 @Composable
-private fun TrendLineChart(trend: List<MonthTrend>) {
-    val maxAmount = trend.maxOf { it.amount }.toFloat()
-    val minAmount = trend.minOf { it.amount }.toFloat()
+private fun ForecastRow(item: CategoryForecast) {
+    // A category can be forecast before the user has spent anything in it.
+    val hasBaseline = item.spentSoFar > 0.0
+    val change = if (hasBaseline) (item.predicted - item.spentSoFar) / item.spentSoFar * 100 else 0.0
+    val ratio = if (hasBaseline) (item.predicted / (item.spentSoFar * 1.5)).coerceIn(0.0, 1.0) else 1.0
 
-    Canvas(
-        modifier = Modifier
+    Row(
+        Modifier
             .fillMaxWidth()
-            .height(100.dp)
+            .padding(horizontal = Space.lg, vertical = Space.md),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        val stepX = size.width / (trend.size - 1)
-        val points = trend.mapIndexed { index, item ->
-            val normalized = (item.amount - minAmount) / (maxAmount - minAmount + 1f)
-            val y = size.height - (normalized * size.height)
-            Offset(index * stepX, y)
-        }
-
-        for (i in 0 until points.size - 1) {
-            val isLastSegment = i == points.size - 2
-            drawLine(
-                color = if (isLastSegment) PredWarning else PredPurpleMid,
-                start = points[i],
-                end = points[i + 1],
-                strokeWidth = 6f,
-                cap = StrokeCap.Round
-            )
-        }
-        points.forEachIndexed { index, point ->
-            drawCircle(
-                color = if (index == points.size - 1) PredWarning else PredPurpleMid,
-                radius = 8f,
-                center = point
-            )
-        }
-    }
-}
-
-@Composable
-private fun CategoryPredictionCard(item: CategoryPrediction) {
-    val percentChange = ((item.predicted - item.lastMonth).toFloat() / item.lastMonth * 100)
-    val fillPercent = (item.predicted.toFloat() / (item.lastMonth * 1.3f)).coerceIn(0f, 1f)
-
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(14.dp)) {
+        CategoryAvatar(item.category)
+        Spacer(Modifier.width(Space.md))
+        Column(Modifier.weight(1f)) {
             Row(
                 Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(item.icon, fontSize = 18.sp)
-                    Spacer(Modifier.width(8.dp))
-                    Text(item.category, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                }
-                Text(
-                    "₹${item.predicted}",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp,
-                    color = PredPurpleDark
-                )
+                Text(item.category, style = RowTitleStyle, color = Ink)
+                Text(rupees(item.predicted), style = RowTitleStyle, color = Indigo700)
             }
-            Spacer(Modifier.height(6.dp))
-            Text(
-                "Last month: ₹${item.lastMonth}  •  ${if (percentChange >= 0) "+" else ""}${"%.0f".format(percentChange)}%",
-                fontSize = 12.sp,
-                color = PredTextSecondary
+            Spacer(Modifier.height(Space.sm))
+            AnimatedBar(
+                progress = ratio.toFloat(),
+                color = categoryColor(item.category),
+                height = 6.dp
             )
-            Spacer(Modifier.height(8.dp))
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .height(6.dp)
-                    .clip(RoundedCornerShape(3.dp))
-                    .background(PredTrackGray)
-            ) {
-                Box(
-                    Modifier
-                        .fillMaxWidth(fillPercent)
-                        .fillMaxHeight()
-                        .clip(RoundedCornerShape(3.dp))
-                        .background(if (percentChange >= 10) PredWarning else PredPurpleMid)
-                )
-            }
+            Spacer(Modifier.height(Space.sm))
+            Text(
+                if (hasBaseline)
+                    "so far ${rupees(item.spentSoFar)} · " +
+                        "${if (change >= 0) "+" else ""}${"%.0f".format(change)}%"
+                else "nothing recorded yet this month",
+                style = CaptionStyle,
+                color = InkFaint
+            )
         }
     }
 }
-
-
-
