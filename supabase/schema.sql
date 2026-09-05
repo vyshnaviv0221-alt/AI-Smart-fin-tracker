@@ -15,9 +15,12 @@ create table if not exists public.expenses (
     occurred_at timestamptz not null default now(),
     is_anomaly  boolean     not null default false,
 
-    -- Room's local row id. Unique per user so the app can upsert the same
-    -- transaction repeatedly without creating duplicates.
-    client_id   integer     not null,
+    -- The device's stable per-transaction UUID (Expense.syncId), unique per
+    -- user so the app can upsert the same transaction repeatedly without
+    -- creating duplicates. Deliberately NOT the Room row id: those restart at
+    -- 1 when the local database is recreated, which would let a reinstall
+    -- overwrite a different transaction stored under the same key.
+    client_id   text        not null,
 
     created_at  timestamptz not null default now(),
 

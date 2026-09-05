@@ -102,12 +102,24 @@ def predict_anomaly(amount: float, merchant_text: str = "") -> tuple[str, str, f
     stats = _anomaly_stats.get(category, _anomaly_stats["__global__"])
     deviation = (float(np.log1p(float(amount))) - stats["median"]) / stats["scale"]
 
-    flag = _anomaly_model.predict([[deviation]])[0]  # -1 = anomaly, 1 = normal
-    return ("UNUSUAL" if flag == -1 else "normal"), category, round(float(deviation), 2)
+    # One-sided, matching model/training/anomaly_detection.py.flag_unusual():
+    # an outlier is only UNUSUAL if it is ABOVE the category's normal range.
+    # A two-sided detector spent 85% of its flags on transactions that were
+    # unusually cheap, which is noise in a tool meant to warn about spending.
+    is_outlier = _anomaly_model.predict([[deviation]])[0] == -1
+    status = "UNUSUAL" if (is_outlier and deviation > 0) else "normal"
+    return status, category, round(float(deviation), 2)
 
 
 def predict_monthly_amount(month: int, category: str) -> float:
-    """Returns the predicted spend for a given month + category."""
+    """
+    Expected monthly spend for a category.
+
+    `month` is accepted and validated by the API but not consumed by the model:
+    the month feature measurably hurt accuracy on the real data (R2 -0.243 vs
+    0.107 for category alone), so it was dropped. The parameter is kept so the
+    endpoint contract does not change if a seasonal model is reintroduced.
+    """
     input_row = pd.DataFrame(0, index=[0], columns=_forecaster_columns)
     if "Month" in input_row.columns:
         input_row["Month"] = month

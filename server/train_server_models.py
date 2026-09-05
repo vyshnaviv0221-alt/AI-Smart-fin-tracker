@@ -183,10 +183,14 @@ with open(f"{OUT_DIR}/anomaly_category_stats.json", "w") as f:
 print("-> Anomaly model trained and saved (category-aware)")
 
 # =====================================================================
-# 3) Monthly forecast — (Month, Category) -> predicted amount
-#    Mirrors predict_expense.py's approach (one-hot Month+Category -> log(amount))
-#    using synthetic month-by-month history since the real
-#    "Daily Household Transactions.csv" isn't available in this environment.
+# 3) Monthly forecast — Category -> expected monthly amount
+#
+#    The Month feature is deliberately NOT used, matching
+#    model/training/predict_expense.py. Measured out-of-fold on the real
+#    household data, one-hot(Month, Category) scored R2 -0.243 against 0.107
+#    for category alone -- with ~3 observations per (month, category) cell the
+#    month split fits noise. The /predict endpoint still accepts a month so the
+#    API is unchanged, but the model does not consume it.
 # =====================================================================
 history_rows = []
 for month in range(1, 13):
@@ -198,7 +202,7 @@ for month in range(1, 13):
             history_rows.append({"Month": month, "Category": category, "Amount": noisy})
 
 hist_df = pd.DataFrame(history_rows)
-X_raw = pd.get_dummies(hist_df[["Month", "Category"]], columns=["Category"], drop_first=False)
+X_raw = pd.get_dummies(hist_df[["Category"]], columns=["Category"], drop_first=False)
 y_log = np.log1p(hist_df["Amount"])
 feature_cols = X_raw.columns.tolist()
 

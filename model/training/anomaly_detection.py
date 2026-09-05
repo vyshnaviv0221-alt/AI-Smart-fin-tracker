@@ -37,7 +37,9 @@ from sklearn.ensemble import IsolationForest
 
 from paths import ARTIFACTS, EVALUATION, PROCESSED, require
 
-CONTAMINATION = 0.03      # expect ~3% of transactions to be unusual
+# Raised from 0.03 because flags are then gated to the high side only (see
+# below); this keeps the surfaced rate near the ~3% we actually want to alert on.
+CONTAMINATION = 0.06
 MAD_TO_SIGMA = 1.4826     # scales median-absolute-deviation to a std-like unit
 MIN_SCALE = 0.05          # floor, so a category with near-zero spread can't divide by ~0
 
@@ -71,6 +73,18 @@ def deviation_scores(amounts, categories, stats: dict) -> np.ndarray:
     return np.asarray(out).reshape(-1, 1)
 
 
+def flag_unusual(model, deviations: np.ndarray) -> np.ndarray:
+    """
+    The single place the UNUSUAL decision is made.
+
+    Isolation Forest identifies outliers in the deviation score; the second
+    clause keeps only those above the category's normal range. Training, the
+    demo below and the server all call this, so they cannot drift apart.
+    """
+    flat = deviations.ravel()
+    return (model.predict(deviations) == -1) & (flat > 0)
+
+
 # 1. Load the same transaction dataset used for categorization
 df = pd.read_csv(require(PROCESSED / "sample_transactions_large.csv"))
 print(f"Loaded {len(df)} transactions\n")
@@ -80,8 +94,9 @@ category_stats = fit_category_stats(df)
 X = deviation_scores(df["amount"], df["category"], category_stats)
 
 model = IsolationForest(contamination=CONTAMINATION, random_state=42)
-df["status"] = np.where(model.fit_predict(X) == -1, "UNUSUAL", "normal")
+model.fit(X)
 df["deviation"] = X.ravel().round(2)
+df["status"] = np.where(flag_unusual(model, X), "UNUSUAL", "normal")
 
 # 3. Report
 anomalies = df[df["status"] == "UNUSUAL"].reindex(
@@ -94,7 +109,7 @@ spread = df.groupby("category").agg(
     flagged=("status", lambda s: (s == "UNUSUAL").sum()),
 )
 spread["pct"] = (spread["flagged"] / spread["total"] * 100).round(1)
-print("Flagged per category (spread out, not concentrated in one category):")
+print("Flagged per category (high-side only, spread across categories):")
 print(spread.sort_values("flagged", ascending=False).to_string())
 
 print("\nMost extreme flags, with how far they sit from their category's median:")
@@ -123,13 +138,15 @@ demo = pd.DataFrame(
         {"amount": 15000, "category": "Rent", "expected": "normal"},
         {"amount": 15000, "category": "Food", "expected": "UNUSUAL"},
         {"amount": 450, "category": "Food", "expected": "normal"},
-        {"amount": 450, "category": "Rent", "expected": "UNUSUAL"},
+        # Rent at Rs 450 is far below normal, but "cheaper than usual" is not
+        # an alert in an expense tracker.
+        {"amount": 450, "category": "Rent", "expected": "normal"},
         {"amount": 60000, "category": "Shopping", "expected": "UNUSUAL"},
         {"amount": 2800, "category": "Groceries", "expected": "normal"},
     ]
 )
 demo_X = deviation_scores(demo["amount"], demo["category"], category_stats)
 demo["deviation"] = demo_X.ravel().round(2)
-demo["status"] = np.where(model.predict(demo_X) == -1, "UNUSUAL", "normal")
+demo["status"] = np.where(flag_unusual(model, demo_X), "UNUSUAL", "normal")
 demo["match"] = np.where(demo["status"] == demo["expected"], "ok", "MISMATCH")
 print(demo[["amount", "category", "deviation", "status", "expected", "match"]].to_string(index=False))

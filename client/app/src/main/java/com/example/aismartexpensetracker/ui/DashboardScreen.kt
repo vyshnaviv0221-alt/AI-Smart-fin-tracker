@@ -20,6 +20,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.example.aismartexpensetracker.AddResult
 import com.example.aismartexpensetracker.CategoryTotal
 import com.example.aismartexpensetracker.Expense
 import com.example.aismartexpensetracker.ExpenseViewModel
@@ -37,7 +38,22 @@ fun DashboardScreen(
     val categoryTotals by viewModel.categoryTotals.collectAsState()
     val budgets by viewModel.budgets.collectAsState()
     val isCategorizing by viewModel.isCategorizing.collectAsState()
+    val addResult by viewModel.addResult.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Confirm what happened after an add. Previously the dialog just closed,
+    // so a suppressed duplicate looked identical to a successful save.
+    LaunchedEffect(addResult) {
+        when (val r = addResult) {
+            is AddResult.Added ->
+                snackbarHostState.showSnackbar("Added ${r.merchant} as ${r.category}")
+            is AddResult.Duplicate ->
+                snackbarHostState.showSnackbar("${r.merchant} looks like a repeat — not added")
+            null -> Unit
+        }
+        if (addResult != null) viewModel.clearAddResult()
+    }
 
     val totalSpent = monthExpenses.sumOf { it.amount }
     // Only shown once the user has actually set limits -- no invented target.
@@ -157,6 +173,13 @@ fun DashboardScreen(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(Space.xl)
+        )
+
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = Space.fabClearance)
         )
     }
 

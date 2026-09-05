@@ -6,7 +6,9 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -55,6 +57,12 @@ data class CategoryForecast(
     val predicted: Double
 )
 
+/** Outcome of a manual add, so the UI can confirm or explain. */
+sealed interface AddResult {
+    data class Added(val merchant: String, val category: String) : AddResult
+    data class Duplicate(val merchant: String) : AddResult
+}
+
 /** Result of the most recent cloud action, for the UI to show. */
 sealed interface CloudState {
     data object Idle : CloudState
@@ -83,10 +91,28 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
     val budgets: StateFlow<List<Budget>> = budgetDao.getAllBudgets()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    /** Budgets are monthly, so spend is compared against the current month only. */
-    val expensesThisMonth: StateFlow<List<Expense>> = dao.getAllExpenses()
-        .map { list -> list.filter { it.date >= startOfCurrentMonth() } }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    /**
+     * Start of the current calendar month, re-emitted periodically.
+     *
+     * Without the ticker, a session left open across a month boundary keeps
+     * filtering against the old month until some other change arrives. The
+     * interval is coarse because the value only changes once a month.
+     */
+    private val monthStart = flow {
+        while (true) {
+            emit(startOfCurrentMonth())
+            delay(MONTH_CHECK_INTERVAL_MS)
+        }
+    }
+
+    /**
+     * Budgets are monthly, so spend is compared against the current month only.
+     * Derived from `expenses` rather than collecting getAllExpenses() a second
+     * time -- two collectors meant Room ran and delivered the same query twice.
+     */
+    val expensesThisMonth: StateFlow<List<Expense>> =
+        combine(expenses, monthStart) { all, since -> all.filter { it.date >= since } }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val categoryTotals: StateFlow<List<CategoryTotal>> = expensesThisMonth
         .map { list ->
@@ -117,7 +143,7 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
 
     val insights: StateFlow<List<Insight>> =
         combine(budgetStatuses, expensesThisMonth) { statuses, monthExpenses ->
-            buildInsights(statuses, monthExpenses)
+            InsightEngine.build(statuses, monthExpenses)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val profileStats: StateFlow<ProfileStats> =
@@ -145,6 +171,9 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
     private val _signedInEmail = MutableStateFlow(sessionStore.email)
     val signedInEmail: StateFlow<String?> = _signedInEmail
 
+    private val _addResult = MutableStateFlow<AddResult?>(null)
+    val addResult: StateFlow<AddResult?> = _addResult
+
     private val _cloudState = MutableStateFlow<CloudState>(CloudState.Idle)
     val cloudState: StateFlow<CloudState> = _cloudState
 
@@ -153,14 +182,29 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
 
     // ---------------- actions ----------------
 
-    /** Manual entry (+ button). Same pipeline as automatic notification capture. */
+    /**
+     * Manual entry (+ button). Same enrichment pipeline as automatic capture,
+     * but deduplication is OFF: two identical taps mean two real purchases,
+     * and silently dropping the second is invisible data loss.
+     */
     fun addExpense(merchant: String, amount: Double) {
         viewModelScope.launch {
             _isCategorizing.value = true
-            ExpenseRepository.captureExpense(dao, merchant, amount)
+            val result = ExpenseRepository.captureExpense(
+                dao = dao,
+                merchant = merchant,
+                amount = amount,
+                deduplicate = false
+            )
+            _addResult.value = when (result) {
+                is CaptureResult.Saved -> AddResult.Added(merchant, result.category)
+                CaptureResult.DuplicateIgnored -> AddResult.Duplicate(merchant)
+            }
             _isCategorizing.value = false
         }
     }
+
+    fun clearAddResult() { _addResult.value = null }
 
     /**
      * Human-in-the-Loop correction. Every screen reads the same Room Flow, so
@@ -270,13 +314,33 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    /** Pushes every local expense to Supabase. Upserts, so it is safe to repeat. */
+    /**
+     * Pushes locally changed expenses to Supabase.
+     *
+     * Only rows modified since the last successful sync are sent, rather than
+     * the whole table every time. Corrections are included because
+     * updateCategory bumps `updatedAt`. Writes upsert on (user_id, syncId), so
+     * a retry after a partial failure is safe.
+     */
     fun syncNow() {
         if (!sessionStore.isSignedIn) return
         viewModelScope.launch {
             _cloudState.value = CloudState.Busy
-            _cloudState.value = when (val result = SupabaseClient.syncExpenses(sessionStore, expenses.value)) {
-                is CloudResult.Ok -> CloudState.Message("Synced ${result.value} transactions", false)
+
+            val since = sessionStore.lastSyncedAt
+            val changed = dao.getChangedSince(since)
+            if (changed.isEmpty()) {
+                _cloudState.value = CloudState.Message("Already up to date", false)
+                return@launch
+            }
+
+            _cloudState.value = when (val result = SupabaseClient.syncExpenses(sessionStore, changed)) {
+                is CloudResult.Ok -> {
+                    // Watermark from the data actually sent, not "now", so a row
+                    // written while the request was in flight is not skipped.
+                    sessionStore.lastSyncedAt = changed.maxOf { it.updatedAt }
+                    CloudState.Message("Synced ${result.value} transactions", false)
+                }
                 is CloudResult.Failed -> CloudState.Message(result.message, true)
                 CloudResult.NotConfigured -> CloudState.Message("Supabase not configured", true)
             }
@@ -287,6 +351,11 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
 
     // ---------------- helpers ----------------
 
+    private companion object {
+        /** Coarse: the month boundary only moves once a month. */
+        const val MONTH_CHECK_INTERVAL_MS = 15 * 60 * 1000L
+    }
+
     private fun startOfCurrentMonth(): Long = Calendar.getInstance().apply {
         set(Calendar.DAY_OF_MONTH, 1)
         set(Calendar.HOUR_OF_DAY, 0)
@@ -295,104 +364,4 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
         set(Calendar.MILLISECOND, 0)
     }.timeInMillis
 
-    /**
-     * Rule-based recommendations computed from the user's own data.
-     * Returns an empty list when there is nothing genuine to say -- the screen
-     * shows an empty state rather than filler advice.
-     */
-    private fun buildInsights(
-        statuses: List<BudgetStatus>,
-        monthExpenses: List<Expense>
-    ): List<Insight> {
-        if (monthExpenses.isEmpty()) return emptyList()
-
-        val insights = mutableListOf<Insight>()
-
-        statuses.filter { it.isOver }.forEach { status ->
-            val over = status.spent - (status.limit ?: 0.0)
-            insights += Insight(
-                icon = "⚠️",
-                title = "${status.category} is over budget",
-                message = "You've spent ₹${"%,.0f".format(status.spent)} against a " +
-                    "₹${"%,.0f".format(status.limit)} limit — ₹${"%,.0f".format(over)} over.",
-                level = InsightLevel.DANGER
-            )
-        }
-
-        statuses.filter { it.isNear }.forEach { status ->
-            val pct = ((status.ratio ?: 0.0) * 100).toInt()
-            insights += Insight(
-                icon = emojiForInsight(status.category),
-                title = "${status.category} is nearing its limit",
-                message = "At $pct% of your ₹${"%,.0f".format(status.limit)} limit " +
-                    "with ₹${"%,.0f".format((status.limit ?: 0.0) - status.spent)} left.",
-                level = InsightLevel.WARNING
-            )
-        }
-
-        monthExpenses.filter { it.isAnomaly }.take(3).forEach { expense ->
-            insights += Insight(
-                icon = "🔍",
-                title = "Unusual ${expense.category} transaction",
-                message = "${expense.merchant} for ₹${"%,.0f".format(expense.amount)} " +
-                    "is well outside your normal ${expense.category} spending. " +
-                    "Tap it in Transactions if the category is wrong.",
-                level = InsightLevel.WARNING
-            )
-        }
-
-        val topCategory = statuses.maxByOrNull { it.spent }
-        val monthTotal = monthExpenses.sumOf { it.amount }
-        if (topCategory != null && monthTotal > 0) {
-            val share = (topCategory.spent / monthTotal * 100).toInt()
-            if (share >= 40) {
-                insights += Insight(
-                    icon = emojiForInsight(topCategory.category),
-                    title = "${topCategory.category} dominates your spending",
-                    message = "$share% of this month's ₹${"%,.0f".format(monthTotal)} " +
-                        "went to ${topCategory.category}.",
-                    level = InsightLevel.NEUTRAL
-                )
-            }
-        }
-
-        val withoutLimits = statuses.filter { it.limit == null && it.spent > 0 }
-        if (withoutLimits.isNotEmpty()) {
-            insights += Insight(
-                icon = "🎯",
-                title = "Set limits to get alerts",
-                message = "No budget yet for " +
-                    withoutLimits.take(3).joinToString(", ") { it.category } +
-                    if (withoutLimits.size > 3) " and ${withoutLimits.size - 3} more." else ".",
-                level = InsightLevel.NEUTRAL
-            )
-        }
-
-        val onTrack = statuses.filter { it.limit != null && (it.ratio ?: 0.0) < 0.6 }
-        if (onTrack.isNotEmpty() && insights.none { it.level == InsightLevel.DANGER }) {
-            insights += Insight(
-                icon = "✅",
-                title = "On track",
-                message = onTrack.take(3).joinToString(", ") { it.category } +
-                    " ${if (onTrack.size == 1) "is" else "are"} comfortably within budget.",
-                level = InsightLevel.GOOD
-            )
-        }
-
-        return insights
-    }
-
-    private fun emojiForInsight(category: String): String = when (category) {
-        "Food" -> "🍔"
-        "Groceries" -> "🛒"
-        "Travel" -> "🚕"
-        "Shopping" -> "🛍️"
-        "Bills" -> "🧾"
-        "Healthcare" -> "🏥"
-        "Entertainment" -> "🎬"
-        "Investment" -> "📈"
-        "Rent" -> "🏠"
-        "Transfer" -> "💸"
-        else -> "💰"
-    }
 }
