@@ -93,15 +93,18 @@ class ExpenseNotificationListener : NotificationListenerService() {
         // 2. Save locally and enrich, exactly as the manual "+" button does.
         val dao = AppDatabase.getDatabase(applicationContext).expenseDao()
         serviceScope.launch {
-            val newId = ExpenseRepository.captureExpense(
+            // Deduplication is ON here: banks and UPI apps genuinely re-post
+            // the same alert, and Android re-delivers notifications on update.
+            val result = ExpenseRepository.captureExpense(
                 dao = dao,
                 merchant = parsed.merchant,
-                amount = parsed.amount
+                amount = parsed.amount,
+                deduplicate = true
             )
-            if (newId == null) return@launch  // suppressed as a duplicate
+            if (result !is CaptureResult.Saved) return@launch
 
             // 3. Best-effort cloud sync. Never allowed to affect local capture.
-            syncToCloud(dao, newId)
+            syncToCloud(dao, result.id)
         }
     }
 

@@ -38,6 +38,11 @@ data class AuthError(
  * One row of the `expenses` table. `user_id` is filled in by a Postgres
  * default (auth.uid()), so the client never sends it -- that keeps row-level
  * security authoritative rather than trusting the client.
+ *
+ * `client_id` is the local row's syncId (a UUID), not its integer primary key.
+ * Row ids restart at 1 whenever the local database is recreated, so an
+ * integer key would let a fresh install upsert over a different transaction
+ * already stored for that user.
  */
 data class RemoteExpense(
     val merchant: String,
@@ -45,7 +50,7 @@ data class RemoteExpense(
     val category: String,
     val occurred_at: String,
     val is_anomaly: Boolean,
-    val client_id: Int
+    val client_id: String
 )
 
 interface SupabaseApi {

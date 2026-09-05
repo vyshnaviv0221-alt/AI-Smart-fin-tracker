@@ -29,6 +29,7 @@ class SessionStore(context: Context) {
         const val KEY_REFRESH_TOKEN = "refresh_token"
         const val KEY_EMAIL = "email"
         const val KEY_USER_ID = "user_id"
+        const val KEY_LAST_SYNCED_AT = "last_synced_at"
     }
 
     private val prefs: SharedPreferences = try {
@@ -52,6 +53,14 @@ class SessionStore(context: Context) {
     val userId: String? get() = prefs.getString(KEY_USER_ID, null)
     val isSignedIn: Boolean get() = !accessToken.isNullOrBlank()
 
+    /**
+     * `updatedAt` of the newest row confirmed uploaded. Sync sends only rows
+     * changed after this, instead of the whole table every time.
+     */
+    var lastSyncedAt: Long
+        get() = prefs.getLong(KEY_LAST_SYNCED_AT, 0L)
+        set(value) = prefs.edit().putLong(KEY_LAST_SYNCED_AT, value).apply()
+
     fun save(response: AuthResponse) {
         prefs.edit()
             .putString(KEY_ACCESS_TOKEN, response.access_token)
@@ -61,5 +70,6 @@ class SessionStore(context: Context) {
             .apply()
     }
 
+    /** Signing out drops the watermark too, so the next account syncs in full. */
     fun clear() = prefs.edit().clear().apply()
 }

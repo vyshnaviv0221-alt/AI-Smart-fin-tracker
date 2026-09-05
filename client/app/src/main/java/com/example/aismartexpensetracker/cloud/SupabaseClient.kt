@@ -126,8 +126,9 @@ object SupabaseClient {
     // ---------------- data ----------------
 
     /**
-     * Pushes expenses to the `expenses` table. Upserts on (user_id, client_id),
-     * so calling this repeatedly is safe and will not duplicate rows.
+     * Pushes expenses to the `expenses` table. Upserts on (user_id, client_id)
+     * where client_id is the row's stable syncId, so retries and re-syncs
+     * update in place instead of duplicating.
      */
     suspend fun syncExpenses(store: SessionStore, expenses: List<Expense>): CloudResult<Int> {
         val client = api ?: return CloudResult.NotConfigured
@@ -142,7 +143,7 @@ object SupabaseClient {
                     category = expense.category,
                     occurred_at = timestampFormat.format(java.util.Date(expense.date)),
                     is_anomaly = expense.isAnomaly,
-                    client_id = expense.id
+                    client_id = expense.syncId
                 )
             }
             val response = client.upsertExpenses(anonKey, "Bearer $token", rows)

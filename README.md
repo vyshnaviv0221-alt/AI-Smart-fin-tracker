@@ -30,8 +30,8 @@ Notification (bank / UPI app)
   → ExpenseRepository.captureExpense()
       ├─ duplicate check (same merchant+amount within 60s)
       ├─ Room insert with an on-device keyword category  (always works offline)
-      ├─ POST /categorize → better category, if confidence >= 0.50
-      ├─ POST /anomaly    → unusual flag, judged within the category
+      ├─ POST /categorize → better category, if confidence >= 0.30
+      ├─ POST /anomaly    → flagged only if unusually HIGH for its category
       └─ Supabase sync (if signed in)
   → Every screen renders from the same Room Flow
 ```

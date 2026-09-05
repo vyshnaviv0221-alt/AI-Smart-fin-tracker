@@ -90,10 +90,18 @@ clearly worse. That is the honest finding: monthly household spend is dominated
 by irregular one-off purchases. Lag features and per-category time series were
 also tested and did not help.
 
-**Anomaly detector** — the amount-only version flagged 20 transactions of which
-**all 20 were Rent** (31.7% of every rent payment) and found nothing in the
-other nine categories: it had learned "rent is expensive". Scoring each
-transaction by how far its log amount sits from its own category's median (in
-MAD units) spreads flags across 7 categories and correctly separates
-Rs 15,000 on Rent (normal) from Rs 15,000 on Food (unusual). See
+**Anomaly detector** — two defects were found by measuring, not by reading:
+
+1. The amount-only version flagged 20 transactions of which **all 20 were
+   Rent** (31.7% of every rent payment) and found nothing in the other nine
+   categories: it had learned "rent is expensive". Scoring each transaction by
+   how far its log amount sits from its own category's median (in MAD units)
+   fixed that.
+2. That version was still two-sided, and **17 of its 20 flags were
+   transactions that were unusually *cheap*** -- a Rs 60 Rapido ride scored
+   -6.66 and was reported as unusual. This is an expense tracker: alerting on
+   a cheap fare is noise. Flags are now one-sided (high side only).
+
+The result correctly separates Rs 15,000 on Rent (normal) from Rs 15,000 on
+Food (unusual), and no longer flags Rs 450 rent or a Rs 50 coffee. See
 `evaluation/anomaly_flags_by_category.csv`.
