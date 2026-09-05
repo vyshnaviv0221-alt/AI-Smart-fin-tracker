@@ -2,7 +2,6 @@ package com.example.aismartexpensetracker.ui.theme
 
 import android.app.Activity
 import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
@@ -38,10 +37,14 @@ private val LightColorScheme = lightColorScheme(
 
 @Composable
 fun AISMARTEXPENSETRACKERTheme(
-        darkTheme: Boolean = isSystemInDarkTheme(),
-        // Off by default: on Android 12+ dynamic color derives the palette from
-        // the user's wallpaper, which would discard the app's purple branding
-        // on the demo device.
+        // The app uses a fixed light brand palette: every screen paints its own
+        // light background and dark-on-light text. Following the system into
+        // dark mode gave Material's Card a dark surface on those light pages,
+        // so cards rendered near-black with low-contrast grey text. Until the
+        // screens are made theme-aware, the palette stays light.
+        darkTheme: Boolean = false,
+        // Off: on Android 12+ dynamic colour derives the palette from the
+        // user's wallpaper, discarding the app's purple branding.
         dynamicColor: Boolean = false,
         content: @Composable () -> Unit
 ) {

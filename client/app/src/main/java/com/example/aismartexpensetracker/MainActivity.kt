@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -29,7 +30,13 @@ class MainActivity : ComponentActivity() {
         setContent {
             AISMARTEXPENSETRACKERTheme {
                 Surface(
-                    modifier = Modifier.fillMaxSize(),
+                    // safeDrawingPadding keeps content clear of the status and
+                    // navigation bars. Applied once here rather than per screen;
+                    // MenuScreen's Scaffold opts out of its own insets so it
+                    // isn't padded twice.
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .safeDrawingPadding(),
                     color = MaterialTheme.colorScheme.background
                 ) {
                     AppNavHost()
