@@ -1,84 +1,72 @@
 package com.example.aismartexpensetracker.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.aismartexpensetracker.BudgetStatus
 import com.example.aismartexpensetracker.ExpenseViewModel
-
-private val BudgetPurpleDark = Color(0xFF3C3489)
-private val BudgetBgGray = Color(0xFFF7F6FA)
-private val BudgetTextSecondary = Color(0xFF757575)
-private val BudgetStatusGood = Color(0xFF534AB7)
-private val BudgetStatusWarning = Color(0xFFF9A825)
-private val BudgetStatusDanger = Color(0xFFD32F2F)
-private val BudgetTrackGray = Color(0xFFE0DDE8)
+import com.example.aismartexpensetracker.ui.components.*
+import com.example.aismartexpensetracker.ui.theme.*
 
 /**
  * Budgets are entirely user-owned: no category starts with an invented limit.
  * The list shows the categories the user has actually spent in this month plus
- * any they've set a limit for, and spend is measured against the current
- * calendar month.
+ * any they have set a limit for, measured against the current calendar month.
  */
 @Composable
 fun BudgetScreen(viewModel: ExpenseViewModel = viewModel()) {
     val statuses by viewModel.budgetStatuses.collectAsState()
     var editing by remember { mutableStateOf<BudgetStatus?>(null) }
 
+    val overCount = statuses.count { it.isOver }
+
     Column(
-        modifier = Modifier
+        Modifier
             .fillMaxSize()
-            .background(BudgetBgGray)
-            .padding(16.dp)
+            .background(Canvas)
+            .padding(horizontal = Space.lg)
     ) {
-        Text(
-            "Budgets & Alerts",
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            color = BudgetPurpleDark
+        Spacer(Modifier.height(Space.sm))
+        ScreenTitle(
+            text = "Budgets",
+            subtitle = when {
+                statuses.isEmpty() -> "No spending recorded this month"
+                overCount > 0 -> "$overCount over limit · tap a category to adjust"
+                else -> "This month · tap a category to set a limit"
+            }
         )
-        Spacer(Modifier.height(4.dp))
-        Text(
-            if (statuses.isEmpty()) "No spending recorded this month yet"
-            else "This month · tap a category to set or change its limit",
-            fontSize = 13.sp,
-            color = BudgetTextSecondary
-        )
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(Space.xl))
 
         if (statuses.isEmpty()) {
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(18.dp)) {
-                    Text("Nothing to budget yet", fontWeight = FontWeight.Bold, color = BudgetPurpleDark)
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        "Once transactions are captured — automatically from notifications, " +
-                            "or with the + button on the dashboard — each category appears " +
-                            "here and you can set a monthly limit.",
-                        fontSize = 13.sp,
-                        color = BudgetTextSecondary
-                    )
-                }
-            }
+            EmptyState(
+                icon = "🎯",
+                title = "Nothing to budget yet",
+                message = "Once transactions are captured, each category appears " +
+                    "here and you can give it a monthly limit."
+            )
         } else {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(Space.md),
+                contentPadding = PaddingValues(bottom = Space.xxxl)
+            ) {
                 items(statuses, key = { it.category }) { status ->
-                    BudgetCard(status) { editing = status }
+                    PressableCard(
+                        onClick = { editing = status },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        BudgetRow(status)
+                    }
                 }
             }
         }
@@ -101,82 +89,55 @@ fun BudgetScreen(viewModel: ExpenseViewModel = viewModel()) {
 }
 
 @Composable
-private fun BudgetCard(status: BudgetStatus, onClick: () -> Unit) {
+private fun BudgetRow(status: BudgetStatus) {
     val ratio = status.ratio
     val barColor = when {
-        status.isOver -> BudgetStatusDanger
-        status.isNear -> BudgetStatusWarning
-        else -> BudgetStatusGood
+        status.isOver -> Danger
+        status.isNear -> Warning
+        else -> categoryColor(status.category)
     }
 
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-    ) {
-        Column(Modifier.padding(16.dp)) {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(emojiFor(status.category), fontSize = 18.sp)
-                    Spacer(Modifier.width(8.dp))
-                    Text(status.category, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                }
+    Column(Modifier.padding(Space.lg)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            CategoryAvatar(status.category)
+            Spacer(Modifier.width(Space.md))
+            Column(Modifier.weight(1f)) {
+                Text(status.category, style = RowTitleStyle, color = Ink)
+                Spacer(Modifier.height(Space.xxs))
                 Text(
-                    "₹${"%,.0f".format(status.spent)}",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp,
-                    color = if (status.isOver) BudgetStatusDanger else BudgetPurpleDark
+                    if (status.limit == null) "No limit set"
+                    else "of ${rupees(status.limit)}",
+                    style = CaptionStyle,
+                    color = InkMuted
                 )
             }
+            Text(
+                rupees(status.spent),
+                style = RowTitleStyle,
+                color = if (status.isOver) Danger else Ink
+            )
+        }
 
-            Spacer(Modifier.height(10.dp))
-
-            if (status.limit == null) {
+        if (status.limit != null) {
+            Spacer(Modifier.height(Space.md))
+            AnimatedBar(progress = (ratio ?: 0.0).toFloat(), color = barColor)
+            Spacer(Modifier.height(Space.sm))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(
-                    "No limit set — tap to add one",
-                    fontSize = 12.sp,
-                    color = BudgetTextSecondary
+                    "${((ratio ?: 0.0) * 100).toInt()}% used",
+                    style = CaptionStyle,
+                    color = InkMuted
                 )
-            } else {
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .height(8.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(BudgetTrackGray)
-                ) {
-                    Box(
-                        Modifier
-                            .fillMaxWidth((ratio ?: 0.0).coerceIn(0.0, 1.0).toFloat())
-                            .fillMaxHeight()
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(barColor)
-                    )
-                }
-                Spacer(Modifier.height(8.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(
-                        "Limit ₹${"%,.0f".format(status.limit)}",
-                        fontSize = 12.sp,
-                        color = BudgetTextSecondary
-                    )
-                    Text(
-                        when {
-                            status.isOver ->
-                                "₹${"%,.0f".format(status.spent - status.limit)} over"
-                            else ->
-                                "₹${"%,.0f".format(status.limit - status.spent)} left"
-                        },
-                        fontSize = 12.sp,
-                        fontWeight = if (status.isOver) FontWeight.Bold else FontWeight.Normal,
-                        color = if (status.isOver) BudgetStatusDanger else BudgetTextSecondary
-                    )
-                }
+                Text(
+                    if (status.isOver) "${rupees(status.spent - status.limit)} over"
+                    else "${rupees(status.limit - status.spent)} left",
+                    style = CaptionStyle,
+                    color = if (status.isOver) Danger else if (status.isNear) Warning else InkMuted
+                )
             }
+        } else {
+            Spacer(Modifier.height(Space.md))
+            Text("Tap to set a monthly limit", style = CaptionStyle, color = Indigo500)
         }
     }
 }
@@ -188,6 +149,7 @@ private fun SetLimitDialog(
     onSave: (Double) -> Unit,
     onClear: () -> Unit
 ) {
+    val haptics = LocalHapticFeedback.current
     var text by remember(status.category) {
         mutableStateOf(status.limit?.let { "%.0f".format(it) } ?: "")
     }
@@ -195,37 +157,63 @@ private fun SetLimitDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("${status.category} budget") },
+        shape = Radius.sheet,
+        containerColor = SurfaceWhite,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                CategoryAvatar(status.category, size = 36.dp)
+                Spacer(Modifier.width(Space.md))
+                Text(status.category, style = SectionStyle, color = Ink)
+            }
+        },
         text = {
             Column {
                 Text(
-                    "Spent this month: ₹${"%,.0f".format(status.spent)}",
-                    fontSize = 13.sp,
-                    color = BudgetTextSecondary
+                    "Spent this month: ${rupees(status.spent)}",
+                    style = CaptionStyle,
+                    color = InkMuted
                 )
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(Space.lg))
                 OutlinedTextField(
                     value = text,
                     onValueChange = { text = it },
-                    label = { Text("Monthly limit (₹)") },
+                    label = { Text("Monthly limit") },
+                    prefix = { Text("₹") },
                     singleLine = true,
+                    shape = Radius.chip,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth()
                 )
+                if (value != null && value > 0 && status.spent > value) {
+                    Spacer(Modifier.height(Space.md))
+                    Text(
+                        "You have already spent ${rupees(status.spent - value)} more " +
+                            "than this limit this month.",
+                        style = CaptionStyle,
+                        color = Warning
+                    )
+                }
             }
         },
         confirmButton = {
             TextButton(
-                onClick = { value?.let(onSave) },
+                onClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    value?.let(onSave)
+                },
                 enabled = value != null && value > 0
-            ) { Text("Save") }
+            ) { Text("Save", style = RowTitleStyle) }
         },
         dismissButton = {
             Row {
                 if (status.limit != null) {
-                    TextButton(onClick = onClear) { Text("Remove") }
+                    TextButton(onClick = onClear) {
+                        Text("Remove", style = RowTitleStyle, color = Danger)
+                    }
                 }
-                TextButton(onClick = onDismiss) { Text("Cancel") }
+                TextButton(onClick = onDismiss) {
+                    Text("Cancel", style = RowTitleStyle, color = InkMuted)
+                }
             }
         }
     )
