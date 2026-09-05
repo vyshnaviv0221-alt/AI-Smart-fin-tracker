@@ -1,3 +1,601 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:33822558d08ea8d4b06440c2ecb6b7fb3c7be632568308af3e1d3f82176339e4
-size 27610
+404: Not Found,merchant_text,amount,category,anomaly_flag,status
+,Metro Cash and Carry #53386,2496.0,Groceries,1,normal
+,Cinepolis Pune,393.0,Entertainment,1,normal
+,UPI Transfer Jaipur,1245.0,Transfer,1,normal
+,Blinkit Noida,1528.0,Groceries,1,normal
+,Snapdeal #90687,5318.0,Shopping,1,normal
+,MTNL Delhi,561.0,Bills,1,normal
+,Wow Momo Outlet,160.0,Food,1,normal
+,Groww Investment Purchase,2402.0,Investment,1,normal
+,Zepto Delhi,338.0,Groceries,1,normal
+,Practo Consultation Bill,1409.0,Healthcare,1,normal
+,Zomato #85696,180.0,Food,1,normal
+,JioMart #98248,1107.0,Groceries,1,normal
+,Metro Cash and Carry Delhi,1443.0,Groceries,1,normal
+,Paytm Wallet Load Noida,4549.0,Transfer,1,normal
+,Amazon Prime Video,838.0,Entertainment,1,normal
+,Tata Cliq Gurgaon,2891.0,Shopping,1,normal
+,Domino's Pizza #71381,848.0,Food,1,normal
+,Tata Cliq Bangalore,5102.0,Shopping,1,normal
+,Reliance Digital #2658,3841.0,Shopping,1,normal
+,DMart,2566.0,Groceries,1,normal
+,McDonalds Order,110.0,Food,1,normal
+,Paytm Wallet Load Booking,2340.0,Transfer,1,normal
+,Apartment Rent #66278,17491.0,Rent,1,normal
+,GPay Transfer Noida,4450.0,Transfer,1,normal
+,Hotstar,868.0,Entertainment,1,normal
+,PG Rent Payment Delivery,14685.0,Rent,-1,UNUSUAL
+,Blinkit Kochi,1308.0,Groceries,1,normal
+,MakeMyTrip Gurgaon,3205.0,Travel,1,normal
+,Cash Deposit Transfer Order,3381.0,Transfer,1,normal
+,LIC Premium,6598.0,Investment,1,normal
+,GPay Transfer Gurgaon,4907.0,Transfer,1,normal
+,MakeMyTrip #12003,5325.0,Travel,1,normal
+,More Supermarket Purchase,2094.0,Groceries,1,normal
+,BSNL,780.0,Bills,1,normal
+,Amazon Store,1889.0,Shopping,1,normal
+,Zerodha Trading #36755,8361.0,Investment,1,normal
+,Yatra Hyderabad,1267.0,Travel,1,normal
+,Flat Rent Transfer Payment,14585.0,Rent,-1,UNUSUAL
+,HDFC Mutual Fund SIP #82006,3147.0,Investment,1,normal
+,Airtel Postpaid,1953.0,Bills,1,normal
+,Cinepolis Delhi,195.0,Entertainment,1,normal
+,Cafe Coffee Day,91.0,Food,1,normal
+,Society Maintenance Rent Jaipur,20680.0,Rent,-1,UNUSUAL
+,Cash Deposit Transfer Pune,997.0,Transfer,1,normal
+,Cafe Coffee Day #57155,677.0,Food,1,normal
+,Flipkart #75177,736.0,Shopping,1,normal
+,SBI Mutual Fund,5155.0,Investment,1,normal
+,Nature's Basket Gurgaon,742.0,Groceries,1,normal
+,Blinkit,974.0,Groceries,1,normal
+,Rent Payment Landlord Purchase,17626.0,Rent,1,normal
+,Hathway Broadband Mumbai,1500.0,Bills,1,normal
+,Water Board Kolkata,2257.0,Bills,1,normal
+,Reliance Fresh,401.0,Groceries,1,normal
+,GPay Transfer,3096.0,Transfer,1,normal
+,PhonePe to Friend Gurgaon,747.0,Transfer,1,normal
+,PharmEasy #50925,1373.0,Healthcare,1,normal
+,Amazon #17591,2647.0,Shopping,1,normal
+,Uber Pune,1793.0,Travel,1,normal
+,GoAir Delhi,3542.0,Travel,1,normal
+,Reliance Digital Hyderabad,1101.0,Shopping,1,normal
+,JioMart #32285,1387.0,Groceries,1,normal
+,Ola Cabs #22465,2608.0,Travel,1,normal
+,Fortis Hospital,722.0,Healthcare,1,normal
+,Society Maintenance Rent,23825.0,Rent,-1,UNUSUAL
+,GPay Transfer #66308,4316.0,Transfer,1,normal
+,Reliance Fresh Jaipur,628.0,Groceries,1,normal
+,Paytm Wallet Load #45444,4669.0,Transfer,1,normal
+,UPI Transfer,3332.0,Transfer,1,normal
+,Reliance Fresh,581.0,Groceries,1,normal
+,Fortis Hospital,1797.0,Healthcare,1,normal
+,Netmeds Hyderabad,1421.0,Healthcare,1,normal
+,KFC #45597,364.0,Food,1,normal
+,Upstox Trading #66715,3471.0,Investment,1,normal
+,BookMyShow Tickets #76248,331.0,Entertainment,1,normal
+,Upstox Trading Delhi,7333.0,Investment,1,normal
+,House Rent NEFT,21306.0,Rent,-1,UNUSUAL
+,Medplus Store Ahmedabad,1801.0,Healthcare,1,normal
+,Lifestyle Stores Delhi,2275.0,Shopping,1,normal
+,UPI Transfer #37663,1073.0,Transfer,1,normal
+,Upstox Trading Noida,7421.0,Investment,1,normal
+,Electricity Board Bangalore,1351.0,Bills,1,normal
+,Paytm Money,9586.0,Investment,1,normal
+,UPI Transfer Ahmedabad,923.0,Transfer,1,normal
+,Hotstar,508.0,Entertainment,1,normal
+,Spencer's Retail,635.0,Groceries,1,normal
+,Pizza Hut Kochi,160.0,Food,1,normal
+,Air India Order,4776.0,Travel,1,normal
+,Flipkart,1370.0,Shopping,1,normal
+,PVR Cinemas,714.0,Entertainment,1,normal
+,Amazon,4933.0,Shopping,1,normal
+,Snapdeal Transaction,4499.0,Shopping,1,normal
+,GPay Transfer,1408.0,Transfer,1,normal
+,Star Bazaar Noida,2514.0,Groceries,1,normal
+,1mg Pharmacy Noida,1743.0,Healthcare,1,normal
+,Gas Pipeline #55459,2126.0,Bills,1,normal
+,Tata Sky,2335.0,Bills,1,normal
+,Ajio Chennai,4119.0,Shopping,1,normal
+,Subway,713.0,Food,1,normal
+,Netflix,743.0,Entertainment,1,normal
+,Star Bazaar #81173,2978.0,Groceries,1,normal
+,DMart #37265,480.0,Groceries,1,normal
+,Decathlon Sports Mumbai,2876.0,Shopping,1,normal
+,Flat Rent Transfer Order,13179.0,Rent,1,normal
+,Practo Consultation,1837.0,Healthcare,1,normal
+,Zepto #74792,709.0,Groceries,1,normal
+,Angel One Store,3093.0,Investment,1,normal
+,Ola Auto Ahmedabad,5528.0,Travel,1,normal
+,Vodafone Idea,2148.0,Bills,1,normal
+,BSNL,922.0,Bills,1,normal
+,ZEE5 Subscription,758.0,Entertainment,1,normal
+,Ajio Bill,2908.0,Shopping,1,normal
+,Groww Investment Bangalore,4906.0,Investment,1,normal
+,GPay Transfer,2084.0,Transfer,1,normal
+,Bank NEFT Transfer Bill,2385.0,Transfer,1,normal
+,INOX Movies,619.0,Entertainment,1,normal
+,Amazon Prime Video Delhi,420.0,Entertainment,1,normal
+,Cure Fit Hyderabad,822.0,Healthcare,1,normal
+,Yatra Ahmedabad,694.0,Travel,1,normal
+,Society Maintenance Rent,19552.0,Rent,1,normal
+,Zerodha Trading Delhi,9317.0,Investment,1,normal
+,Ola Auto,3948.0,Travel,1,normal
+,Cafe Coffee Day,827.0,Food,1,normal
+,Amazon Prime Video,885.0,Entertainment,1,normal
+,House Rent NEFT,13962.0,Rent,1,normal
+,Reliance Digital #61931,3968.0,Shopping,1,normal
+,Yatra #13240,1984.0,Travel,1,normal
+,UPI Transfer Noida,4838.0,Transfer,1,normal
+,ACT Broadband Store,1361.0,Bills,1,normal
+,IMPS Transfer Gurgaon,4105.0,Transfer,1,normal
+,Groww Investment Transaction,8684.0,Investment,1,normal
+,Star Bazaar Jaipur,1526.0,Groceries,1,normal
+,Paytm Wallet Load,2200.0,Transfer,1,normal
+,Ola Cabs Transaction,4776.0,Travel,1,normal
+,SpiceJet Ahmedabad,3466.0,Travel,1,normal
+,Angel One,5670.0,Investment,1,normal
+,Ajio #65038,4948.0,Shopping,1,normal
+,Metro Cash and Carry,1136.0,Groceries,1,normal
+,Nature's Basket Ahmedabad,2559.0,Groceries,1,normal
+,BSNL,965.0,Bills,1,normal
+,Grofers Store,534.0,Groceries,1,normal
+,Faasos Pune,294.0,Food,1,normal
+,Croma Electronics Jaipur,1916.0,Shopping,1,normal
+,GoAir #80069,1866.0,Travel,1,normal
+,Grofers Noida,2897.0,Groceries,1,normal
+,Rent Payment Landlord #54242,19904.0,Rent,1,normal
+,Star Bazaar,2505.0,Groceries,1,normal
+,PVR Cinemas Jaipur,320.0,Entertainment,1,normal
+,Amazon Prime Video,863.0,Entertainment,1,normal
+,Cafe Coffee Day,860.0,Food,1,normal
+,Domino's Pizza Chennai,330.0,Food,1,normal
+,IMPS Transfer Bill,4512.0,Transfer,1,normal
+,House Rent NEFT #95454,19063.0,Rent,1,normal
+,Practo Consultation Delivery,300.0,Healthcare,1,normal
+,Netmeds Noida,902.0,Healthcare,1,normal
+,Society Maintenance Rent Kochi,21650.0,Rent,-1,UNUSUAL
+,BSNL Pune,1465.0,Bills,1,normal
+,Behrouz Biryani Ahmedabad,485.0,Food,1,normal
+,Angel One,9626.0,Investment,1,normal
+,Nature's Basket Kolkata,306.0,Groceries,1,normal
+,Nature's Basket Transaction,508.0,Groceries,1,normal
+,Amazon Prime Video Gurgaon,481.0,Entertainment,1,normal
+,Decathlon Sports #17551,5625.0,Shopping,1,normal
+,Pizza Hut Kolkata,356.0,Food,1,normal
+,SonyLIV #70547,622.0,Entertainment,1,normal
+,Cult Fit Membership,1960.0,Healthcare,1,normal
+,SpiceJet,4548.0,Travel,1,normal
+,Jio Recharge Kolkata,1136.0,Bills,1,normal
+,Gas Pipeline,1509.0,Bills,1,normal
+,IMPS Transfer,2929.0,Transfer,1,normal
+,Cinepolis,523.0,Entertainment,1,normal
+,Vodafone Idea Jaipur,1631.0,Bills,1,normal
+,Tata Sky Purchase,1150.0,Bills,1,normal
+,Rent Payment Landlord Noida,16993.0,Rent,1,normal
+,ZEE5 Subscription Outlet,826.0,Entertainment,1,normal
+,Air India,3513.0,Travel,1,normal
+,Faasos Delivery,826.0,Food,1,normal
+,Society Maintenance Rent Delivery,9387.0,Rent,1,normal
+,Domino's Pizza Delhi,426.0,Food,1,normal
+,Grofers Order,758.0,Groceries,1,normal
+,Gas Pipeline Bangalore,1308.0,Bills,1,normal
+,More Supermarket Hyderabad,1932.0,Groceries,1,normal
+,Vodafone Idea,773.0,Bills,1,normal
+,IMPS Transfer #1679,4608.0,Transfer,1,normal
+,LIC Premium,2033.0,Investment,1,normal
+,Angel One Store,6060.0,Investment,1,normal
+,Amazon Prime Video Store,261.0,Entertainment,1,normal
+,PVR Cinemas Mumbai,679.0,Entertainment,1,normal
+,ICICI Direct Mumbai,9991.0,Investment,1,normal
+,Netflix #38938,435.0,Entertainment,1,normal
+,MTNL Kochi,2155.0,Bills,1,normal
+,Society Maintenance Rent #60988,9211.0,Rent,1,normal
+,Flat Rent Transfer Store,23315.0,Rent,-1,UNUSUAL
+,BigBasket Booking,2475.0,Groceries,1,normal
+,Flipkart Purchase,2576.0,Shopping,1,normal
+,Hotstar Delhi,349.0,Entertainment,1,normal
+,Airtel Postpaid Transaction,1536.0,Bills,1,normal
+,SBI Mutual Fund,1713.0,Investment,1,normal
+,Apollo Pharmacy #87363,1217.0,Healthcare,1,normal
+,Society Maintenance Rent,24095.0,Rent,-1,UNUSUAL
+,GoAir Chennai,2811.0,Travel,1,normal
+,GoAir,5102.0,Travel,1,normal
+,ICICI Direct Store,1857.0,Investment,1,normal
+,SBI Mutual Fund #82633,8489.0,Investment,1,normal
+,Tata Cliq Pune,5606.0,Shopping,1,normal
+,Snapdeal Transaction,667.0,Shopping,1,normal
+,ACT Broadband Transaction,2032.0,Bills,1,normal
+,Gas Pipeline Delhi,1438.0,Bills,1,normal
+,BSNL,736.0,Bills,1,normal
+,Electricity Board #72118,2042.0,Bills,1,normal
+,PPF Deposit,3712.0,Investment,1,normal
+,UPI Transfer,1862.0,Transfer,1,normal
+,Bank NEFT Transfer Order,2404.0,Transfer,1,normal
+,PhonePe to Friend Kolkata,4240.0,Transfer,1,normal
+,Blinkit #68033,773.0,Groceries,1,normal
+,Decathlon Sports Delhi,1977.0,Shopping,1,normal
+,RedBus,4937.0,Travel,1,normal
+,Netmeds Mumbai,1761.0,Healthcare,1,normal
+,Starbucks Pune,184.0,Food,1,normal
+,House Rent NEFT,10430.0,Rent,1,normal
+,Pizza Hut #8331,314.0,Food,1,normal
+,Uber #32266,1094.0,Travel,1,normal
+,Paytm Money,2680.0,Investment,1,normal
+,Zomato Store,899.0,Food,1,normal
+,Apollo Pharmacy,1676.0,Healthcare,1,normal
+,Max Healthcare Hyderabad,1464.0,Healthcare,1,normal
+,PPF Deposit Chennai,1854.0,Investment,1,normal
+,Practo Consultation #61852,1585.0,Healthcare,1,normal
+,Cult Fit Membership Jaipur,1944.0,Healthcare,1,normal
+,Zomato Bangalore,418.0,Food,1,normal
+,Apollo Pharmacy Pune,1767.0,Healthcare,1,normal
+,Barbeque Nation Purchase,601.0,Food,1,normal
+,PPF Deposit Purchase,3962.0,Investment,1,normal
+,Lifestyle Stores Jaipur,3516.0,Shopping,1,normal
+,PG Rent Payment,23512.0,Rent,-1,UNUSUAL
+,Paytm Wallet Load #41970,2715.0,Transfer,1,normal
+,KFC Kochi,513.0,Food,1,normal
+,Netflix Delivery,552.0,Entertainment,1,normal
+,Vodafone Idea Kochi,2231.0,Bills,1,normal
+,Spotify Premium,457.0,Entertainment,1,normal
+,MTNL Noida,782.0,Bills,1,normal
+,UPI Transfer #40294,3990.0,Transfer,1,normal
+,Amazon Prime Video Gurgaon,748.0,Entertainment,1,normal
+,Netflix #86918,177.0,Entertainment,1,normal
+,Uber Kolkata,3250.0,Travel,1,normal
+,Rapido Bike Kolkata,4811.0,Travel,1,normal
+,1mg Pharmacy Kolkata,509.0,Healthcare,1,normal
+,Flat Rent Transfer Delivery,21460.0,Rent,-1,UNUSUAL
+,Paytm Money #99617,8355.0,Investment,1,normal
+,Ola Auto #49351,1434.0,Travel,1,normal
+,Cafe Coffee Day #45587,194.0,Food,1,normal
+,DMart Store,1584.0,Groceries,1,normal
+,Wow Momo Mumbai,332.0,Food,1,normal
+,Ola Auto #74920,1845.0,Travel,1,normal
+,PhonePe to Friend Bill,3069.0,Transfer,1,normal
+,JioMart #21289,1077.0,Groceries,1,normal
+,Domino's Pizza Hyderabad,629.0,Food,1,normal
+,PharmEasy Kochi,603.0,Healthcare,1,normal
+,Lifestyle Stores,2901.0,Shopping,1,normal
+,McDonalds #23431,626.0,Food,1,normal
+,MTNL Noida,1771.0,Bills,1,normal
+,MTNL Jaipur,206.0,Bills,1,normal
+,1mg Pharmacy #95493,1721.0,Healthcare,1,normal
+,Bank NEFT Transfer Bangalore,4880.0,Transfer,1,normal
+,Flipkart Ahmedabad,2397.0,Shopping,1,normal
+,1mg Pharmacy Delivery,904.0,Healthcare,1,normal
+,Flat Rent Transfer,17307.0,Rent,1,normal
+,MTNL,1711.0,Bills,1,normal
+,DMart,910.0,Groceries,1,normal
+,Flipkart Bill,1234.0,Shopping,1,normal
+,Max Healthcare,1901.0,Healthcare,1,normal
+,Fortis Hospital #65139,1410.0,Healthcare,1,normal
+,Netmeds Transaction,1850.0,Healthcare,1,normal
+,Pizza Hut Transaction,86.0,Food,1,normal
+,Faasos Booking,542.0,Food,1,normal
+,Amazon Prime Video,143.0,Entertainment,1,normal
+,PhonePe to Friend Payment,1662.0,Transfer,1,normal
+,LIC Premium Bangalore,6780.0,Investment,1,normal
+,Cafe Coffee Day #90593,743.0,Food,1,normal
+,Pizza Hut Gurgaon,726.0,Food,1,normal
+,Cash Deposit Transfer #62814,610.0,Transfer,1,normal
+,PG Rent Payment #51678,19109.0,Rent,1,normal
+,McDonalds Jaipur,696.0,Food,1,normal
+,Flat Rent Transfer Pune,22318.0,Rent,-1,UNUSUAL
+,Paytm Money Mumbai,3538.0,Investment,1,normal
+,Amazon Prime Video #41966,537.0,Entertainment,1,normal
+,LIC Premium Payment,6072.0,Investment,1,normal
+,Max Healthcare,1999.0,Healthcare,1,normal
+,Flipkart Mumbai,4921.0,Shopping,1,normal
+,Haldiram's Bangalore,192.0,Food,1,normal
+,HDFC Mutual Fund SIP Store,2381.0,Investment,1,normal
+,Water Board #55387,1542.0,Bills,1,normal
+,McDonalds Transaction,765.0,Food,1,normal
+,Flipkart #35675,5520.0,Shopping,1,normal
+,Swiggy Delivery,99.0,Food,1,normal
+,Air India Outlet,4469.0,Travel,1,normal
+,Amazon,3040.0,Shopping,1,normal
+,UPI Transfer Noida,3214.0,Transfer,1,normal
+,MakeMyTrip #99032,5944.0,Travel,1,normal
+,Flat Rent Transfer,13704.0,Rent,1,normal
+,PharmEasy Jaipur,1389.0,Healthcare,1,normal
+,Decathlon Sports,2663.0,Shopping,1,normal
+,Flat Rent Transfer Payment,12511.0,Rent,1,normal
+,UPI Transfer #54788,4210.0,Transfer,1,normal
+,House Rent NEFT,22585.0,Rent,-1,UNUSUAL
+,Nature's Basket Bangalore,2672.0,Groceries,1,normal
+,1mg Pharmacy Store,371.0,Healthcare,1,normal
+,Rapido Bike,3912.0,Travel,1,normal
+,SonyLIV Delhi,520.0,Entertainment,1,normal
+,MakeMyTrip Outlet,4908.0,Travel,1,normal
+,Tata Cliq Chennai,3188.0,Shopping,1,normal
+,IRCTC Railways #9418,3458.0,Travel,1,normal
+,Flat Rent Transfer,9061.0,Rent,1,normal
+,1mg Pharmacy Gurgaon,1012.0,Healthcare,1,normal
+,Flat Rent Transfer Order,18876.0,Rent,1,normal
+,PharmEasy,1470.0,Healthcare,1,normal
+,JioMart,1316.0,Groceries,1,normal
+,Amazon Prime Video Noida,794.0,Entertainment,1,normal
+,Blinkit #75085,2441.0,Groceries,1,normal
+,Paytm Money,4084.0,Investment,1,normal
+,PhonePe to Friend Outlet,1340.0,Transfer,1,normal
+,Metro Cash and Carry Store,2852.0,Groceries,1,normal
+,Netflix Jaipur,820.0,Entertainment,1,normal
+,Hotstar #85599,251.0,Entertainment,1,normal
+,Flat Rent Transfer Hyderabad,9373.0,Rent,1,normal
+,Decathlon Sports,1990.0,Shopping,1,normal
+,Netmeds Chennai,538.0,Healthcare,1,normal
+,Max Healthcare,1023.0,Healthcare,1,normal
+,Medplus Store #79116,155.0,Healthcare,1,normal
+,Amazon Prime Video Booking,180.0,Entertainment,1,normal
+,McDonalds Store,432.0,Food,1,normal
+,PVR Cinemas #87223,810.0,Entertainment,1,normal
+,Burger King Mumbai,632.0,Food,1,normal
+,Ola Auto Hyderabad,1054.0,Travel,1,normal
+,Water Board Delivery,647.0,Bills,1,normal
+,1mg Pharmacy #31162,1393.0,Healthcare,1,normal
+,UPI Transfer Pune,4318.0,Transfer,1,normal
+,Wow Momo Delhi,533.0,Food,1,normal
+,Metro Cash and Carry,772.0,Groceries,1,normal
+,Hotstar #50060,256.0,Entertainment,1,normal
+,Practo Consultation Mumbai,284.0,Healthcare,1,normal
+,MTNL,435.0,Bills,1,normal
+,Apartment Rent Mumbai,13307.0,Rent,1,normal
+,Vodafone Idea,586.0,Bills,1,normal
+,Vistara Airlines,720.0,Travel,1,normal
+,Jio Recharge Delivery,1563.0,Bills,1,normal
+,Apartment Rent Delhi,10154.0,Rent,1,normal
+,Apartment Rent #78569,13052.0,Rent,1,normal
+,Domino's Pizza,394.0,Food,1,normal
+,Upstox Trading Noida,3317.0,Investment,1,normal
+,Apollo Pharmacy Ahmedabad,218.0,Healthcare,1,normal
+,Tata Cliq #13196,2810.0,Shopping,1,normal
+,Medplus Store Noida,1348.0,Healthcare,1,normal
+,Ola Auto Hyderabad,5283.0,Travel,1,normal
+,Angel One,2108.0,Investment,1,normal
+,Apartment Rent Bangalore,10661.0,Rent,1,normal
+,Rapido Bike #69327,4029.0,Travel,1,normal
+,Zerodha Trading #12835,9307.0,Investment,1,normal
+,Max Healthcare #68271,1365.0,Healthcare,1,normal
+,Max Healthcare Hyderabad,1967.0,Healthcare,1,normal
+,Society Maintenance Rent Delhi,17514.0,Rent,1,normal
+,IndiGo Airlines Outlet,5608.0,Travel,1,normal
+,Apartment Rent Ahmedabad,20155.0,Rent,1,normal
+,Star Bazaar Mumbai,471.0,Groceries,1,normal
+,MakeMyTrip,4195.0,Travel,1,normal
+,H&M,5112.0,Shopping,1,normal
+,Angel One #6130,5059.0,Investment,1,normal
+,Nature's Basket Order,1765.0,Groceries,1,normal
+,Apollo Pharmacy,773.0,Healthcare,1,normal
+,Urban Company Service #86175,478.0,Bills,1,normal
+,Hathway Broadband Payment,1959.0,Bills,1,normal
+,HDFC Mutual Fund SIP Store,3868.0,Investment,1,normal
+,SpiceJet #73667,1102.0,Travel,1,normal
+,Croma Electronics Store,964.0,Shopping,1,normal
+,Croma Electronics Delivery,2619.0,Shopping,1,normal
+,1mg Pharmacy #16292,436.0,Healthcare,1,normal
+,Vodafone Idea #38777,1790.0,Bills,1,normal
+,Rent Payment Landlord,18472.0,Rent,1,normal
+,Upstox Trading Delhi,7142.0,Investment,1,normal
+,Paytm Money,8840.0,Investment,1,normal
+,Rent Payment Landlord Kochi,22358.0,Rent,-1,UNUSUAL
+,House Rent NEFT #81534,11061.0,Rent,1,normal
+,Cinepolis #55287,379.0,Entertainment,1,normal
+,MakeMyTrip Jaipur,63.0,Travel,1,normal
+,Paytm Wallet Load,4018.0,Transfer,1,normal
+,Lifestyle Stores #80905,1212.0,Shopping,1,normal
+,1mg Pharmacy,446.0,Healthcare,1,normal
+,Burger King Noida,521.0,Food,1,normal
+,Reliance Digital #80471,5283.0,Shopping,1,normal
+,Air India,1450.0,Travel,1,normal
+,Bank NEFT Transfer Hyderabad,3921.0,Transfer,1,normal
+,PVR Cinemas Hyderabad,885.0,Entertainment,1,normal
+,Groww Investment,8218.0,Investment,1,normal
+,PhonePe to Friend Kolkata,3525.0,Transfer,1,normal
+,BookMyShow Tickets Gurgaon,540.0,Entertainment,1,normal
+,Paytm Wallet Load,2709.0,Transfer,1,normal
+,Hotstar Kochi,571.0,Entertainment,1,normal
+,Netflix #7522,790.0,Entertainment,1,normal
+,IMPS Transfer Hyderabad,4694.0,Transfer,1,normal
+,Tata Sky,1375.0,Bills,1,normal
+,Rent Payment Landlord Hyderabad,20003.0,Rent,1,normal
+,Flat Rent Transfer,24888.0,Rent,-1,UNUSUAL
+,ZEE5 Subscription Noida,423.0,Entertainment,1,normal
+,Nature's Basket Chennai,456.0,Groceries,1,normal
+,SpiceJet,1684.0,Travel,1,normal
+,SBI Mutual Fund Booking,1672.0,Investment,1,normal
+,HDFC Mutual Fund SIP #76372,4963.0,Investment,1,normal
+,Angel One Purchase,4271.0,Investment,1,normal
+,BookMyShow Tickets Booking,476.0,Entertainment,1,normal
+,Practo Consultation Payment,438.0,Healthcare,1,normal
+,IRCTC Railways Kolkata,5744.0,Travel,1,normal
+,Bank NEFT Transfer Purchase,3865.0,Transfer,1,normal
+,Lifestyle Stores #75607,2764.0,Shopping,1,normal
+,Medplus Store #83242,1473.0,Healthcare,1,normal
+,UPI Transfer Transaction,4174.0,Transfer,1,normal
+,SpiceJet Ahmedabad,1548.0,Travel,1,normal
+,PharmEasy Outlet,178.0,Healthcare,1,normal
+,Ola Auto Purchase,5434.0,Travel,1,normal
+,Spotify Premium Chennai,302.0,Entertainment,1,normal
+,Ajio #85659,4420.0,Shopping,1,normal
+,Bank NEFT Transfer Jaipur,4460.0,Transfer,1,normal
+,BSNL,1345.0,Bills,1,normal
+,Myntra Mumbai,2919.0,Shopping,1,normal
+,Blinkit,1078.0,Groceries,1,normal
+,Vistara Airlines #17334,5956.0,Travel,1,normal
+,House Rent NEFT Delivery,20037.0,Rent,1,normal
+,ZEE5 Subscription #85239,670.0,Entertainment,1,normal
+,Hotstar Pune,895.0,Entertainment,1,normal
+,Ajio #35687,5810.0,Shopping,1,normal
+,GPay Transfer,2551.0,Transfer,1,normal
+,HDFC Mutual Fund SIP Outlet,9224.0,Investment,1,normal
+,PharmEasy Delhi,1125.0,Healthcare,1,normal
+,MakeMyTrip #61946,3679.0,Travel,1,normal
+,Cash Deposit Transfer Mumbai,2479.0,Transfer,1,normal
+,BSNL Chennai,268.0,Bills,1,normal
+,UPI Transfer Delivery,2440.0,Transfer,1,normal
+,Burger King,853.0,Food,1,normal
+,Nature's Basket,1232.0,Groceries,1,normal
+,GPay Transfer #63094,4354.0,Transfer,1,normal
+,Paytm Money Pune,4891.0,Investment,1,normal
+,Uber Ahmedabad,5067.0,Travel,1,normal
+,Apartment Rent,16996.0,Rent,1,normal
+,Burger King #53296,767.0,Food,1,normal
+,Uber #7826,2926.0,Travel,1,normal
+,Zepto Gurgaon,2576.0,Groceries,1,normal
+,Hathway Broadband #38667,1081.0,Bills,1,normal
+,JioMart Mumbai,1383.0,Groceries,1,normal
+,Gas Pipeline #37458,893.0,Bills,1,normal
+,Tata Cliq #58080,1842.0,Shopping,1,normal
+,PharmEasy Ahmedabad,909.0,Healthcare,1,normal
+,Ola Auto Kolkata,4038.0,Travel,1,normal
+,Faasos Payment,126.0,Food,1,normal
+,Subway,599.0,Food,1,normal
+,McDonalds,559.0,Food,1,normal
+,IndiGo Airlines #86426,389.0,Travel,1,normal
+,Vistara Airlines,3685.0,Travel,1,normal
+,Reliance Digital Payment,5299.0,Shopping,1,normal
+,PPF Deposit Payment,5720.0,Investment,1,normal
+,Society Maintenance Rent,9879.0,Rent,1,normal
+,Tata Cliq,2835.0,Shopping,1,normal
+,PhonePe to Friend Hyderabad,1254.0,Transfer,1,normal
+,Star Bazaar Pune,2685.0,Groceries,1,normal
+,Haldiram's Mumbai,820.0,Food,1,normal
+,Urban Company Service,1253.0,Bills,1,normal
+,Apartment Rent Chennai,22623.0,Rent,-1,UNUSUAL
+,1mg Pharmacy Order,274.0,Healthcare,1,normal
+,House Rent NEFT Ahmedabad,8861.0,Rent,1,normal
+,Yatra,3134.0,Travel,1,normal
+,LIC Premium #62487,8349.0,Investment,1,normal
+,Flat Rent Transfer,15388.0,Rent,-1,UNUSUAL
+,Starbucks Ahmedabad,642.0,Food,1,normal
+,Bank NEFT Transfer Delhi,3630.0,Transfer,1,normal
+,PG Rent Payment Booking,19289.0,Rent,1,normal
+,Snapdeal Booking,5288.0,Shopping,1,normal
+,Spotify Premium,156.0,Entertainment,1,normal
+,Gas Pipeline Delhi,1111.0,Bills,1,normal
+,Fortis Hospital Gurgaon,384.0,Healthcare,1,normal
+,Spotify Premium Store,173.0,Entertainment,1,normal
+,Electricity Board,1130.0,Bills,1,normal
+,Myntra Kochi,2889.0,Shopping,1,normal
+,Swiggy Booking,509.0,Food,1,normal
+,Gas Pipeline Bill,614.0,Bills,1,normal
+,UPI Transfer Order,418.0,Transfer,1,normal
+,Rent Payment Landlord,16672.0,Rent,1,normal
+,ICICI Direct Noida,3463.0,Investment,1,normal
+,Grofers Hyderabad,965.0,Groceries,1,normal
+,Flipkart Kolkata,4090.0,Shopping,1,normal
+,Paytm Money #51052,9239.0,Investment,1,normal
+,Cash Deposit Transfer Kochi,2661.0,Transfer,1,normal
+,UPI Transfer Order,4989.0,Transfer,1,normal
+,Decathlon Sports Delivery,3191.0,Shopping,1,normal
+,PharmEasy #29183,1030.0,Healthcare,1,normal
+,Air India Hyderabad,1693.0,Travel,1,normal
+,More Supermarket #88416,721.0,Groceries,1,normal
+,Water Board #61981,1328.0,Bills,1,normal
+,Tata Cliq Delhi,3682.0,Shopping,1,normal
+,BigBasket,1268.0,Groceries,1,normal
+,Hotstar Mumbai,178.0,Entertainment,1,normal
+,Swiggy Bill,682.0,Food,1,normal
+,Subway Delivery,83.0,Food,1,normal
+,INOX Movies #78518,157.0,Entertainment,1,normal
+,Tata Sky Booking,1695.0,Bills,1,normal
+,PharmEasy Purchase,1963.0,Healthcare,1,normal
+,H&M Delivery,4934.0,Shopping,1,normal
+,Air India Kolkata,5219.0,Travel,1,normal
+,Starbucks #90192,512.0,Food,1,normal
+,House Rent NEFT Order,12068.0,Rent,1,normal
+,House Rent NEFT,8849.0,Rent,1,normal
+,Lifestyle Stores #26928,3882.0,Shopping,1,normal
+,Apartment Rent Delhi,21910.0,Rent,-1,UNUSUAL
+,BSNL Jaipur,742.0,Bills,1,normal
+,INOX Movies Chennai,819.0,Entertainment,1,normal
+,Gas Pipeline Purchase,846.0,Bills,1,normal
+,Hotstar Transaction,572.0,Entertainment,1,normal
+,ZEE5 Subscription Transaction,146.0,Entertainment,1,normal
+,Apartment Rent,13242.0,Rent,1,normal
+,IndiGo Airlines Gurgaon,4303.0,Travel,1,normal
+,Reliance Fresh Delivery,1175.0,Groceries,1,normal
+,Angel One Booking,1333.0,Investment,1,normal
+,Ola Auto #68000,3936.0,Travel,1,normal
+,Bank NEFT Transfer Pune,2265.0,Transfer,1,normal
+,PG Rent Payment,10416.0,Rent,1,normal
+,Blinkit Kolkata,1386.0,Groceries,1,normal
+,Domino's Pizza Delivery,730.0,Food,1,normal
+,SpiceJet Store,2506.0,Travel,1,normal
+,McDonalds #10071,858.0,Food,1,normal
+,Flat Rent Transfer Outlet,13460.0,Rent,1,normal
+,INOX Movies,459.0,Entertainment,1,normal
+,Snapdeal Transaction,5445.0,Shopping,1,normal
+,Tata Cliq Noida,839.0,Shopping,1,normal
+,Haldiram's Ahmedabad,496.0,Food,1,normal
+,Cure Fit,253.0,Healthcare,1,normal
+,Hathway Broadband,1174.0,Bills,1,normal
+,Urban Company Service #82973,1960.0,Bills,1,normal
+,PPF Deposit Delhi,1311.0,Investment,1,normal
+,Groww Investment,6727.0,Investment,1,normal
+,GPay Transfer #7880,920.0,Transfer,1,normal
+,MTNL Kolkata,1106.0,Bills,1,normal
+,Reliance Digital Gurgaon,4908.0,Shopping,1,normal
+,IRCTC Railways,1105.0,Travel,1,normal
+,Amazon Prime Video Kolkata,121.0,Entertainment,1,normal
+,PPF Deposit #44583,3185.0,Investment,1,normal
+,Blinkit,2227.0,Groceries,1,normal
+,Spotify Premium #15918,453.0,Entertainment,1,normal
+,Pizza Hut Delhi,772.0,Food,1,normal
+,Bank NEFT Transfer Kolkata,4230.0,Transfer,1,normal
+,DMart Booking,1386.0,Groceries,1,normal
+,Ajio Ahmedabad,2665.0,Shopping,1,normal
+,KFC Payment,720.0,Food,1,normal
+,House Rent NEFT,17357.0,Rent,1,normal
+,Angel One #48696,7108.0,Investment,1,normal
+,Angel One Kolkata,2502.0,Investment,1,normal
+,Netflix,675.0,Entertainment,1,normal
+,BigBasket Mumbai,2909.0,Groceries,1,normal
+,Cure Fit Jaipur,574.0,Healthcare,1,normal
+,Cult Fit Membership Order,506.0,Healthcare,1,normal
+,Urban Company Service Mumbai,2077.0,Bills,1,normal
+,Pizza Hut #11458,318.0,Food,1,normal
+,Cult Fit Membership,1633.0,Healthcare,1,normal
+,BookMyShow Tickets Noida,534.0,Entertainment,1,normal
+,BSNL,667.0,Bills,1,normal
+,Ola Auto Kolkata,2339.0,Travel,1,normal
+,Paytm Wallet Load,2325.0,Transfer,1,normal
+,Flat Rent Transfer Noida,14262.0,Rent,1,normal
+,Bank NEFT Transfer Chennai,2467.0,Transfer,1,normal
+,Apartment Rent Store,17132.0,Rent,1,normal
+,Urban Company Service Delivery,523.0,Bills,1,normal
+,Paytm Wallet Load #27090,4270.0,Transfer,1,normal
+,Snapdeal Store,2411.0,Shopping,1,normal
+,Groww Investment #83346,2698.0,Investment,1,normal
+,House Rent NEFT Delhi,22812.0,Rent,-1,UNUSUAL
+,Wow Momo Mumbai,365.0,Food,1,normal
+,HDFC Mutual Fund SIP Payment,6649.0,Investment,1,normal
+,GPay Transfer,3326.0,Transfer,1,normal
+,Electricity Board Jaipur,686.0,Bills,1,normal
+,Cafe Coffee Day Kochi,815.0,Food,1,normal
+,1mg Pharmacy #45396,1797.0,Healthcare,1,normal
+,LIC Premium Chennai,8740.0,Investment,1,normal
+,Uber Outlet,5992.0,Travel,1,normal
+,Airtel Postpaid Delivery,212.0,Bills,1,normal
+,Tata Cliq Outlet,3155.0,Shopping,1,normal
+,ZEE5 Subscription Order,259.0,Entertainment,1,normal
+,Cinepolis,878.0,Entertainment,1,normal
+,Flat Rent Transfer Pune,17687.0,Rent,1,normal
+,Medplus Store Purchase,375.0,Healthcare,1,normal
+,Cure Fit Purchase,334.0,Healthcare,1,normal
+,Yatra Jaipur,5498.0,Travel,1,normal
+,Metro Cash and Carry #54264,2842.0,Groceries,1,normal
+,Spotify Premium Ahmedabad,329.0,Entertainment,1,normal
+,Reliance Fresh Kochi,1162.0,Groceries,1,normal
+,Groww Investment Delhi,6493.0,Investment,1,normal
+,Apollo Pharmacy #29477,1058.0,Healthcare,1,normal
+,Myntra,2468.0,Shopping,1,normal
+,Zerodha Trading Ahmedabad,9782.0,Investment,1,normal
+,Rapido Bike Outlet,2732.0,Travel,1,normal
+,Zomato,490.0,Food,1,normal
+,Reliance Fresh Delhi,1263.0,Groceries,1,normal
+,More Supermarket Ahmedabad,1732.0,Groceries,1,normal
+,Vodafone Idea Gurgaon,2087.0,Bills,1,normal
+,Angel One Noida,7937.0,Investment,1,normal
+,Reliance Fresh #44540,1986.0,Groceries,1,normal
