@@ -1,54 +1,64 @@
 package com.example.aismartexpensetracker.ui
 
+import android.content.Context
+import android.content.Intent
+import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.Divider
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.app.NotificationManagerCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.aismartexpensetracker.CloudState
+import com.example.aismartexpensetracker.ExpenseViewModel
 
-// ============================================================
-// Local theme colors (self-contained — same pattern as
-// LoginScreen.kt / PredictionsScreen.kt / RecommendationsScreen.kt).
-// ============================================================
 private val ProfPurpleDark = Color(0xFF3C3489)
 private val ProfPurpleMid = Color(0xFF534AB7)
 private val ProfBgGray = Color(0xFFF7F6FA)
 private val ProfTextSecondary = Color(0xFF757575)
 private val ProfDangerRed = Color(0xFFD32F2F)
+private val ProfGood = Color(0xFF1D9E75)
 
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+private fun isListenerEnabled(context: Context): Boolean =
+    NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
+
 @Composable
 fun ProfileScreen(
-    onLogout: () -> Unit = {}
+    onLogout: () -> Unit = {},
+    viewModel: ExpenseViewModel = viewModel()
 ) {
-    // Sample user info — replace with real data from
-    // FirebaseAuth.getInstance().currentUser once wired up
-    val userName = "Vyshnavi V"
-    val userEmail = "vyshnavi@example.com"
-
-    var notificationsEnabled by remember { mutableStateOf(true) }
-    var darkModeEnabled by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val stats by viewModel.profileStats.collectAsState()
+    val email by viewModel.signedInEmail.collectAsState()
+    val cloudState by viewModel.cloudState.collectAsState()
+    var listenerEnabled by remember { mutableStateOf(isListenerEnabled(context)) }
     var showLogoutConfirm by remember { mutableStateOf(false) }
+
+    // Re-check on resume: the user grants access in system Settings and comes back.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                listenerEnabled = isListenerEnabled(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     Column(
         modifier = Modifier
@@ -65,140 +75,185 @@ fun ProfileScreen(
         )
         Spacer(Modifier.height(20.dp))
 
-        // ---- User info card ----
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+        // ---- Account ----
+        Card(Modifier.fillMaxWidth()) {
+            Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     Modifier
-                        .size(56.dp)
+                        .size(52.dp)
                         .clip(CircleShape)
                         .background(ProfPurpleMid),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        userName.first().toString(),
+                        (email?.firstOrNull() ?: '?').uppercaseChar().toString(),
                         color = Color.White,
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
-                Spacer(Modifier.width(14.dp))
+                Spacer(Modifier.width(16.dp))
                 Column {
-                    Text(userName, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                    Spacer(Modifier.height(2.dp))
-                    Text(userEmail, fontSize = 13.sp, color = ProfTextSecondary)
+                    Text(
+                        email ?: "Not signed in",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        color = ProfPurpleDark
+                    )
+                    Text(
+                        when {
+                            email != null -> "Signed in with Supabase"
+                            !viewModel.cloudConfigured ->
+                                "Cloud sync not configured — saved on this device only"
+                            else -> "Not signed in — saved on this device only"
+                        },
+                        fontSize = 12.sp,
+                        color = ProfTextSecondary
+                    )
                 }
             }
         }
 
-        Spacer(Modifier.height(20.dp))
-
-        // ---- Account settings ----
-        Text(
-            "Account settings",
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Bold,
-            color = ProfPurpleDark
-        )
-        Spacer(Modifier.height(10.dp))
-
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(horizontal = 16.dp)) {
-                SettingsRow(
-                    label = "Notification access",
-                    subtitle = "Read transaction alerts automatically",
-                    checked = notificationsEnabled,
-                    onCheckedChange = { notificationsEnabled = it }
-                )
-                Divider(color = Color(0xFFECEAF3))
-                SettingsRow(
-                    label = "Dark mode",
-                    subtitle = "Switch to a darker app theme",
-                    checked = darkModeEnabled,
-                    onCheckedChange = { darkModeEnabled = it }
-                )
-            }
-        }
-
-        Spacer(Modifier.height(28.dp))
-
-        // ---- Logout ----
-        if (showLogoutConfirm) {
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp)) {
-                    Text(
-                        "Log out of your account?",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        "You'll need to log in again to access your expenses.",
-                        fontSize = 13.sp,
-                        color = ProfTextSecondary
-                    )
-                    Spacer(Modifier.height(14.dp))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                        OutlinedButton(onClick = { showLogoutConfirm = false }) {
-                            Text("Cancel")
+        if (email != null) {
+            Spacer(Modifier.height(12.dp))
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(18.dp)) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Cloud sync", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                when (val s = cloudState) {
+                                    is CloudState.Busy -> "Syncing…"
+                                    is CloudState.Message -> s.text
+                                    else -> "Push local transactions to Supabase"
+                                },
+                                fontSize = 12.sp,
+                                color = if ((cloudState as? CloudState.Message)?.isError == true)
+                                    ProfDangerRed else ProfTextSecondary
+                            )
                         }
-                        Spacer(Modifier.width(8.dp))
                         Button(
-                            onClick = {
-                                showLogoutConfirm = false
-                                // UI-only for now — wire to
-                                // FirebaseAuth.getInstance().signOut() here later
-                                onLogout()
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = ProfDangerRed)
-                        ) {
-                            Text("Log out")
-                        }
+                            onClick = { viewModel.syncNow() },
+                            enabled = cloudState !is CloudState.Busy
+                        ) { Text("Sync") }
                     }
                 }
             }
-        } else {
-            OutlinedButton(
-                onClick = { showLogoutConfirm = true },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = ProfDangerRed)
-            ) {
-                Text("Log out", fontSize = 15.sp)
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        // ---- Notification access: the app cannot capture anything without it ----
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(18.dp)) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Notification access", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            if (listenerEnabled) "Granted — capturing bank and UPI alerts"
+                            else "Not granted — automatic capture is off",
+                            fontSize = 12.sp,
+                            color = if (listenerEnabled) ProfGood else ProfDangerRed
+                        )
+                    }
+                    if (!listenerEnabled) {
+                        Button(onClick = {
+                            context.startActivity(
+                                Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+                            )
+                        }) { Text("Grant") }
+                    }
+                }
+                if (!listenerEnabled) {
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        "Find “AI SMART EXPENSE TRACKER” in the list and enable it. " +
+                            "Only notifications from payment and banking apps are read; " +
+                            "no credentials, PINs or OTPs are accessed.",
+                        fontSize = 12.sp,
+                        color = ProfTextSecondary
+                    )
+                }
             }
         }
+
+        Spacer(Modifier.height(16.dp))
+
+        // ---- Real usage stats ----
+        Text("Your data", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = ProfPurpleDark)
+        Spacer(Modifier.height(12.dp))
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(4.dp)) {
+                StatRow("Transactions captured", stats.transactionCount.toString())
+                HorizontalDivider()
+                StatRow("Categories used", stats.categoriesUsed.toString())
+                HorizontalDivider()
+                StatRow("Spent this month", "₹${"%,.0f".format(stats.totalSpentThisMonth)}")
+                HorizontalDivider()
+                StatRow("Spent all time", "₹${"%,.0f".format(stats.totalSpentAllTime)}")
+                HorizontalDivider()
+                StatRow("Flagged unusual", stats.anomalyCount.toString())
+                HorizontalDivider()
+                StatRow("Budgets set", stats.budgetsSet.toString())
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
+
+        OutlinedButton(
+            onClick = { showLogoutConfirm = true },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = ProfDangerRed)
+        ) { Text(if (email != null) "Sign out" else "Go to sign in") }
+
+        Spacer(Modifier.height(24.dp))
+    }
+
+    if (showLogoutConfirm) {
+        AlertDialog(
+            onDismissRequest = { showLogoutConfirm = false },
+            title = { Text(if (email != null) "Sign out?" else "Go to sign in?") },
+            text = {
+                Text(
+                    if (email != null)
+                        "Your transactions stay on this device. Cloud sync stops until " +
+                            "you sign in again."
+                    else "You'll be taken to the sign-in screen."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (email != null) viewModel.signOut()
+                    showLogoutConfirm = false
+                    onLogout()
+                }) { Text("Continue") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLogoutConfirm = false }) { Text("Cancel") }
+            }
+        )
     }
 }
 
 @Composable
-private fun SettingsRow(
-    label: String,
-    subtitle: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit
-) {
+private fun StatRow(label: String, value: String) {
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(vertical = 12.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 14.dp, vertical = 14.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Column(Modifier.weight(1f)) {
-            Text(label, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(2.dp))
-            Text(subtitle, fontSize = 12.sp, color = ProfTextSecondary)
-        }
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            colors = SwitchDefaults.colors(checkedThumbColor = ProfPurpleMid)
-        )
+        Text(label, fontSize = 14.sp, color = ProfTextSecondary)
+        Text(value, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = ProfPurpleDark)
     }
 }

@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -15,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -31,30 +33,22 @@ private val DashTextSecondary = Color(0xFF757575)
 private val DashRed = Color(0xFFD32F2F)
 private val DashTrackGray = Color(0xFFE0DDE8)
 
-// Placeholder until the budgets table lands (P2). Displayed as a target, not
-// as data the app has measured.
-private const val MONTHLY_BUDGET_TARGET = 25000.0
-
 @Composable
 fun DashboardScreen(
     navController: NavController? = null,
     viewModel: ExpenseViewModel = viewModel()
 ) {
-    val expenses by viewModel.expenses.collectAsState()
+    val monthExpenses by viewModel.expensesThisMonth.collectAsState()
+    val categoryTotals by viewModel.categoryTotals.collectAsState()
+    val budgets by viewModel.budgets.collectAsState()
     val isCategorizing by viewModel.isCategorizing.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
 
-    // ---- Derived from actual Room data ----
-    val totalSpent = expenses.sumOf { it.amount.toDoubleOrNull() ?: 0.0 }
-    val remaining = MONTHLY_BUDGET_TARGET - totalSpent
-    val percentUsed = (totalSpent / MONTHLY_BUDGET_TARGET).coerceIn(0.0, 1.0).toFloat()
-    val categoryTotals = expenses
-        .groupBy { it.category }
-        .mapValues { (_, list) -> list.sumOf { it.amount.toDoubleOrNull() ?: 0.0 } }
-        .entries.sortedByDescending { it.value }
-        .take(4)
-    val recent = expenses.take(5)
-    val anomalyCount = expenses.count { it.isAnomaly }
+    val totalSpent = monthExpenses.sumOf { it.amount }
+    // Only shown once the user has actually set limits -- no invented target.
+    val totalBudget = budgets.sumOf { it.monthlyLimit }.takeIf { budgets.isNotEmpty() }
+    val anomalyCount = monthExpenses.count { it.isAnomaly }
+    val recent = monthExpenses.take(5)
     val dateFormat = remember { SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()) }
 
     Box(Modifier.fillMaxSize()) {
@@ -80,7 +74,7 @@ fun DashboardScreen(
 
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(18.dp)) {
-                    Text("Total spent", fontSize = 13.sp, color = DashTextSecondary)
+                    Text("Spent this month", fontSize = 13.sp, color = DashTextSecondary)
                     Spacer(Modifier.height(4.dp))
                     Text(
                         "₹${"%,.0f".format(totalSpent)}",
@@ -88,25 +82,36 @@ fun DashboardScreen(
                         fontWeight = FontWeight.Bold,
                         color = DashPurpleDark
                     )
-                    Spacer(Modifier.height(12.dp))
-                    LinearProgressIndicator(
-                        progress = percentUsed,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(8.dp)
-                            .clip(RoundedCornerShape(4.dp)),
-                        color = if (percentUsed >= 0.9f) DashRed else DashPurpleMid,
-                        trackColor = DashTrackGray
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(
-                            "Target: ₹${"%,.0f".format(MONTHLY_BUDGET_TARGET)}",
-                            fontSize = 12.sp,
-                            color = DashTextSecondary
+
+                    if (totalBudget != null && totalBudget > 0) {
+                        val used = (totalSpent / totalBudget).coerceIn(0.0, 1.0).toFloat()
+                        Spacer(Modifier.height(12.dp))
+                        LinearProgressIndicator(
+                            progress = { used },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(8.dp)
+                                .clip(RoundedCornerShape(4.dp)),
+                            color = if (used >= 0.9f) DashRed else DashPurpleMid,
+                            trackColor = DashTrackGray
                         )
+                        Spacer(Modifier.height(8.dp))
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(
+                                "Budgeted ₹${"%,.0f".format(totalBudget)}",
+                                fontSize = 12.sp,
+                                color = DashTextSecondary
+                            )
+                            Text(
+                                "₹${"%,.0f".format(totalBudget - totalSpent)} left",
+                                fontSize = 12.sp,
+                                color = DashTextSecondary
+                            )
+                        }
+                    } else {
+                        Spacer(Modifier.height(8.dp))
                         Text(
-                            "₹${"%,.0f".format(remaining)} left",
+                            "Set category limits in Budgets to track progress",
                             fontSize = 12.sp,
                             color = DashTextSecondary
                         )
@@ -117,7 +122,7 @@ fun DashboardScreen(
             Spacer(Modifier.height(16.dp))
 
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                SummaryCard(Modifier.weight(1f), "Transactions", expenses.size.toString(), "📋")
+                SummaryCard(Modifier.weight(1f), "Transactions", monthExpenses.size.toString(), "📋")
                 SummaryCard(Modifier.weight(1f), "Flagged unusual", anomalyCount.toString(), "⚠️")
             }
 
@@ -128,10 +133,15 @@ fun DashboardScreen(
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp)) {
                     if (categoryTotals.isEmpty()) {
-                        Text("No expenses yet — tap + to add one", fontSize = 12.sp, color = DashTextSecondary)
+                        Text(
+                            "No expenses yet — tap + to add one, or grant notification " +
+                                "access in Profile to capture them automatically.",
+                            fontSize = 12.sp,
+                            color = DashTextSecondary
+                        )
                     } else {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            categoryTotals.forEach { (category, amount) ->
+                            categoryTotals.take(4).forEach { total ->
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Box(
                                         Modifier
@@ -139,11 +149,11 @@ fun DashboardScreen(
                                             .clip(CircleShape)
                                             .background(DashBgGray),
                                         contentAlignment = Alignment.Center
-                                    ) { Text(emojiFor(category), fontSize = 16.sp) }
+                                    ) { Text(emojiFor(total.category), fontSize = 16.sp) }
                                     Spacer(Modifier.height(4.dp))
-                                    Text(category, fontSize = 10.sp, color = DashTextSecondary)
+                                    Text(total.category, fontSize = 10.sp, color = DashTextSecondary)
                                     Text(
-                                        "₹${"%,.0f".format(amount)}",
+                                        "₹${"%,.0f".format(total.amount)}",
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.SemiBold,
                                         color = DashPurpleDark
@@ -244,7 +254,7 @@ private fun RecentExpenseRow(expense: Expense, formattedDate: String) {
                 }
             }
             Text(
-                "-₹${expense.amount}",
+                "-₹${"%,.0f".format(expense.amount)}",
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp,
                 color = DashRed
@@ -277,13 +287,14 @@ private fun AddExpenseDialog(onDismiss: () -> Unit, onConfirm: (String, Double) 
                     onValueChange = { amountText = it },
                     label = { Text("Amount (₹)") },
                     singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth()
                 )
             }
         },
         confirmButton = {
             TextButton(
-                onClick = { onConfirm(merchant, amountValue ?: 0.0) },
+                onClick = { onConfirm(merchant.trim(), amountValue ?: 0.0) },
                 enabled = merchant.isNotBlank() && amountValue != null && amountValue > 0
             ) { Text("Add") }
         },

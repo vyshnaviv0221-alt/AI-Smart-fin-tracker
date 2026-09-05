@@ -1,0 +1,10 @@
+# Copy to local.properties and fill in. local.properties is git-ignored.
+#
+# Android SDK location (Android Studio sets this automatically):
+# sdk.dir=C\:\Users\you\AppData\Local\Android\Sdk
+
+# Supabase -- Project Settings > API in the Supabase dashboard.
+# The anon key is safe to ship in a client; row-level security is what
+# protects the data. Never put the service_role key here.
+supabase.url=https://YOUR-PROJECT-REF.supabase.co
+supabase.anonKey=YOUR-ANON-PUBLIC-KEY
