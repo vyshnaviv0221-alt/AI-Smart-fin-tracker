@@ -1,3 +1,11 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:844052e0a3f8be264a71a2f86909f967515d35c17586e32416ec6175b99e547f
-size 486
+,pred_Bills,pred_Entertainment,pred_Food,pred_Groceries,pred_Healthcare,pred_Investment,pred_Rent,pred_Shopping,pred_Transfer,pred_Travel
+true_Bills,2,0,0,0,0,0,0,0,0,0
+true_Entertainment,0,2,0,0,0,0,0,0,0,0
+true_Food,0,0,2,0,0,0,0,0,0,0
+true_Groceries,0,0,0,2,0,0,0,0,0,0
+true_Healthcare,0,0,0,0,2,0,0,0,0,0
+true_Investment,0,0,0,0,0,1,0,0,0,0
+true_Rent,0,0,0,0,0,0,1,0,0,0
+true_Shopping,0,0,1,0,0,0,0,1,0,0
+true_Transfer,0,0,0,0,0,0,0,0,1,0
+true_Travel,0,0,0,0,0,0,0,0,0,2

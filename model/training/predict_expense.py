@@ -1,5 +1,4 @@
 ﻿import os
-import json
 import joblib
 import pandas as pd
 import numpy as np
@@ -11,23 +10,16 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 # Resolve path directly inside model/training/ directory
 SCRIPT_DIR = Path(__file__).resolve().parent
-PROJECT_ROOT = SCRIPT_DIR.parents[1]
-
-# Locate dataset either in training/ or in database/raw/
-if (SCRIPT_DIR / "Daily Household Transactions.csv").exists():
-    RAW_DATA_PATH = SCRIPT_DIR / "Daily Household Transactions.csv"
-elif (PROJECT_ROOT / "database" / "raw" / "Daily Household Transactions.csv").exists():
-    RAW_DATA_PATH = PROJECT_ROOT / "database" / "raw" / "Daily Household Transactions.csv"
-else:
-    RAW_DATA_PATH = SCRIPT_DIR / "Daily Household Transactions.csv"
+RAW_DATA_PATH = SCRIPT_DIR / "Daily Household Transactions.csv"
 
 # Resolve artifacts directory relative to project root
+PROJECT_ROOT = SCRIPT_DIR.parents[1]
 ARTIFACTS_DIR = PROJECT_ROOT / "model" / "artifacts"
 ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
 
 # 1. Load Dataset
 if not RAW_DATA_PATH.exists():
-    raise FileNotFoundError(f"Dataset not found at '{RAW_DATA_PATH}'. Ensure 'Daily Household Transactions.csv' exists.")
+    raise FileNotFoundError(f"Dataset not found at '{RAW_DATA_PATH}'. Ensure 'Daily Household Transactions.csv' is inside model/training/")
 
 df = pd.read_csv(RAW_DATA_PATH)
 df.columns = df.columns.str.strip()
@@ -83,9 +75,9 @@ print("=" * 60)
 print("   EXPENSE FORECASTING ENGINE RESULTS (Daily Household CSV)   ")
 print("=" * 60)
 print(f"Total Aggregated Days Analyzed : {len(daily_df)}")
-print(f"Mean Absolute Error (MAE)      : Rs {mae:.2f}")
-print(f"Root Mean Squared Error (RMSE) : Rs {rmse:.2f}")
-print(f"R2 Score                       : {r2:.4f}")
+print(f"Mean Absolute Error (MAE)      : ₹{mae:.2f}")
+print(f"Root Mean Squared Error (RMSE) : ₹{rmse:.2f}")
+print(f"R² Score                       : {r2:.4f}")
 
 # 6. Save Model Artifact
 model_output_path = ARTIFACTS_DIR / "expense_forecaster_model.joblib"
