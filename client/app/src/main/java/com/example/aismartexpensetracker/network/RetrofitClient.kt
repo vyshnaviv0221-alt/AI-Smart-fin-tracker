@@ -1,5 +1,6 @@
 package com.example.aismartexpensetracker.network
 
+import com.example.aismartexpensetracker.BuildConfig
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -8,15 +9,22 @@ import java.util.concurrent.TimeUnit
 
 object RetrofitClient {
 
-    // IMPORTANT -- change this depending on how you're running the demo:
-    //   - Android EMULATOR + server running on your laptop -> "http://10.0.2.2:8000/"
-    //     (10.0.2.2 is the emulator's alias for your laptop's 127.0.0.1)
-    //   - REAL PHONE on the same Wi-Fi as your laptop -> "http://<laptop-LAN-IP>:8000/"
-    //     Find your LAN IP with `ipconfig` (Windows) or `ifconfig`/`ip addr` (Mac/Linux),
-    //     e.g. "http://192.168.1.42:8000/". Phone and laptop must be on the same network,
-    //     and the server must be started as `uvicorn app.main:app --host 0.0.0.0 --port 8000`
-    //     (not the default 127.0.0.1) so it accepts connections from other devices.
-    const val BASE_URL = "http://10.0.2.2:8000/"
+    /**
+     * Set with `server.baseUrl` in client/local.properties; defaults to
+     * http://127.0.0.1:8000/.
+     *
+     *   REAL PHONE  -> http://127.0.0.1:8000/ plus `adb reverse tcp:8000 tcp:8000`,
+     *                  which tunnels the phone's localhost to the laptop over USB.
+     *                  This needs no Wi-Fi and is immune to networks that block
+     *                  client-to-client traffic, so it is the reliable demo path.
+     *   EMULATOR    -> http://10.0.2.2:8000/  (the emulator's alias for the host)
+     *   SAME WI-FI  -> http://<laptop-LAN-IP>:8000/, with the server started as
+     *                  `uvicorn app.main:app --host 0.0.0.0 --port 8000`
+     *
+     * Cleartext HTTP is permitted only for these local hosts -- see
+     * res/xml/network_security_config.xml.
+     */
+    const val BASE_URL: String = BuildConfig.ML_SERVER_URL
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY

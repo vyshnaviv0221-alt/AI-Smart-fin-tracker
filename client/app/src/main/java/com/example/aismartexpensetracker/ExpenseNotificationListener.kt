@@ -3,10 +3,13 @@ package com.example.aismartexpensetracker
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
+import com.example.aismartexpensetracker.cloud.CloudResult
+import com.example.aismartexpensetracker.cloud.SessionStore
+import com.example.aismartexpensetracker.cloud.SupabaseClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
 class ExpenseNotificationListener : NotificationListenerService() {
@@ -48,8 +51,18 @@ class ExpenseNotificationListener : NotificationListenerService() {
         )
     }
 
-    private val firestore by lazy { FirebaseFirestore.getInstance() }
-    private val auth by lazy { FirebaseAuth.getInstance() }
+    /**
+     * Scoped to the service rather than GlobalScope, so in-flight work is
+     * cancelled when Android tears the listener down.
+     */
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    private val sessionStore by lazy { SessionStore(applicationContext) }
+
+    override fun onDestroy() {
+        serviceScope.cancel()
+        super.onDestroy()
+    }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         super.onNotificationPosted(sbn)
@@ -79,46 +92,37 @@ class ExpenseNotificationListener : NotificationListenerService() {
 
         // 2. Save locally and enrich, exactly as the manual "+" button does.
         val dao = AppDatabase.getDatabase(applicationContext).expenseDao()
-        CoroutineScope(Dispatchers.IO).launch {
-            ExpenseRepository.captureExpense(
+        serviceScope.launch {
+            // Deduplication is ON here: banks and UPI apps genuinely re-post
+            // the same alert, and Android re-delivers notifications on update.
+            val result = ExpenseRepository.captureExpense(
                 dao = dao,
                 merchant = parsed.merchant,
-                amount = parsed.amount
+                amount = parsed.amount,
+                deduplicate = true
             )
-            syncToFirestore(parsed)
+            if (result !is CaptureResult.Saved) return@launch
+
+            // 3. Best-effort cloud sync. Never allowed to affect local capture.
+            syncToCloud(dao, result.id)
         }
     }
 
-    /**
-     * Best-effort cloud sync. Every Firebase call is guarded because Firebase
-     * throws if it was never initialised (missing or misconfigured
-     * google-services.json), and losing cloud sync must never cost us the
-     * locally captured transaction.
-     */
-    private fun syncToFirestore(parsed: ParsedExpense) {
+    private suspend fun syncToCloud(dao: ExpenseDao, expenseId: Int) {
+        if (!sessionStore.isSignedIn) {
+            Log.i(TAG, "Not signed in; transaction saved locally only.")
+            return
+        }
         try {
-            val currentUser = auth.currentUser
-            if (currentUser == null) {
-                Log.i(TAG, "Not signed in; transaction saved locally only.")
-                return
+            // Read back so the row carries the enriched category / anomaly flag.
+            val saved = dao.findById(expenseId) ?: return
+            when (val result = SupabaseClient.syncExpenses(sessionStore, listOf(saved))) {
+                is CloudResult.Ok -> Log.d(TAG, "Synced to Supabase")
+                is CloudResult.Failed -> Log.w(TAG, "Supabase sync failed: ${result.message}")
+                CloudResult.NotConfigured -> Log.i(TAG, "Supabase not configured; local only.")
             }
-
-            val data = hashMapOf(
-                "userId" to currentUser.uid,
-                "amount" to parsed.amount,
-                "merchant" to parsed.merchant,
-                "type" to parsed.type,
-                "date" to System.currentTimeMillis()
-            )
-
-            firestore.collection("users")
-                .document(currentUser.uid)
-                .collection("expenses")
-                .add(data)
-                .addOnSuccessListener { Log.d(TAG, "Synced to Firestore") }
-                .addOnFailureListener { e -> Log.e(TAG, "Firestore sync failed", e) }
         } catch (e: Exception) {
-            Log.w(TAG, "Firebase unavailable; transaction saved locally only (${e.message})")
+            Log.w(TAG, "Cloud sync error; transaction is saved locally", e)
         }
     }
 }

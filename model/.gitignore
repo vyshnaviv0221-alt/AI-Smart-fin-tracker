@@ -7,4 +7,5 @@
 #   git checkout 77c2fd1 -- model/artifacts/final_expense_model.pkl
 *.pkl
 *.joblib
+*.json
 !.gitignore

@@ -1,0 +1,34 @@
+Best model: logistic_regression
+Trained on 637 rows (37 real + 600 synthetic)
+Tested on 17 held-out REAL rows
+
+               precision    recall  f1-score   support
+
+        Bills       1.00      1.00      1.00         2
+Entertainment       1.00      1.00      1.00         2
+         Food       0.67      1.00      0.80         2
+    Groceries       1.00      1.00      1.00         2
+   Healthcare       1.00      1.00      1.00         2
+   Investment       1.00      1.00      1.00         1
+         Rent       1.00      1.00      1.00         1
+     Shopping       1.00      0.50      0.67         2
+     Transfer       1.00      1.00      1.00         1
+       Travel       1.00      1.00      1.00         2
+
+     accuracy                           0.94        17
+    macro avg       0.97      0.95      0.95        17
+ weighted avg       0.96      0.94      0.94        17
+
+
+Confusion matrix
+                    pred_Bills  pred_Entertainment  pred_Food  pred_Groceries  pred_Healthcare  pred_Investment  pred_Rent  pred_Shopping  pred_Transfer  pred_Travel
+true_Bills                   2                   0          0               0                0                0          0              0              0            0
+true_Entertainment           0                   2          0               0                0                0          0              0              0            0
+true_Food                    0                   0          2               0                0                0          0              0              0            0
+true_Groceries               0                   0          0               2                0                0          0              0              0            0
+true_Healthcare              0                   0          0               0                2                0          0              0              0            0
+true_Investment              0                   0          0               0                0                1          0              0              0            0
+true_Rent                    0                   0          0               0                0                0          1              0              0            0
+true_Shopping                0                   0          1               0                0                0          0              1              0            0
+true_Transfer                0                   0          0               0                0                0          0              0              1            0
+true_Travel                  0                   0          0               0                0                0          0              0              0            2

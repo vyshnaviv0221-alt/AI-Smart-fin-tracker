@@ -3,16 +3,8 @@ package com.example.aismartexpensetracker.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -21,57 +13,97 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.aismartexpensetracker.CloudState
+import com.example.aismartexpensetracker.ExpenseViewModel
+import com.example.aismartexpensetracker.ui.components.AppCard
+import com.example.aismartexpensetracker.ui.theme.*
 
-// ============================================================
-// THEME COLORS — kept inside this file, with unique names
-// (prefixed "Login") so they can never collide with any other
-// color declared anywhere else in the project.
-// ============================================================
-private val LoginPurpleDark = Color(0xFF3C3489)
-private val LoginPurpleMid = Color(0xFF534AB7)
-private val LoginBgGray = Color(0xFFF7F6FA)
-private val LoginTextSecondary = Color(0xFF757575)
-private val LoginErrorRed = Color(0xFFD32F2F)
-
-// ============================================================
-// LOGIN / REGISTRATION SCREEN
-// ============================================================
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+/**
+ * Supabase email/password authentication (GoTrue).
+ *
+ * Signing in is optional by design: capture, categorisation, budgets and
+ * insights all work on-device with Room as the source of truth. An account
+ * only adds cloud sync, so "Skip" is a first-class choice rather than a way
+ * around a broken screen.
+ */
 @Composable
 fun LoginScreen(
-    onLoginSuccess: () -> Unit = {}
+    onLoginSuccess: () -> Unit = {},
+    viewModel: ExpenseViewModel = viewModel()
 ) {
     var isRegisterMode by remember { mutableStateOf(false) }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var errorText by remember { mutableStateOf<String?>(null) }
+    var localError by remember { mutableStateOf<String?>(null) }
+
+    val cloudState by viewModel.cloudState.collectAsState()
+    val signedInEmail by viewModel.signedInEmail.collectAsState()
+    val busy = cloudState is CloudState.Busy
+
+    // Navigate on a real session appearing, not on the button press.
+    LaunchedEffect(signedInEmail) {
+        if (signedInEmail != null) onLoginSuccess()
+    }
+
+    val remoteMessage = (cloudState as? CloudState.Message)?.takeIf { it.isError }?.text
+    val errorText = localError ?: remoteMessage
+
+    fun submit() {
+        val trimmed = email.trim()
+        localError = when {
+            trimmed.isBlank() || password.isBlank() -> "Please fill in both fields"
+            !trimmed.contains("@") -> "Enter a valid email address"
+            password.length < 6 -> "Password must be at least 6 characters"
+            else -> null
+        }
+        if (localError != null) return
+
+        viewModel.clearCloudMessage()
+        if (isRegisterMode) viewModel.signUp(trimmed, password)
+        else viewModel.signIn(trimmed, password)
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(LoginBgGray)
+            .background(Canvas)
             .padding(24.dp),
         verticalArrangement = Arrangement.Center
     ) {
+        Text("Smart Expense\nTracker", style = DisplayStyle, color = Ink)
+        Spacer(Modifier.height(Space.sm))
         Text(
-            "Smart Expense Tracker",
-            fontSize = 26.sp,
-            fontWeight = FontWeight.Bold,
-            color = LoginPurpleDark
+            if (isRegisterMode) "Create an account to sync across devices"
+            else "Sign in to sync across devices",
+            style = BodyStyle,
+            color = InkMuted
         )
-        Spacer(Modifier.height(4.dp))
-        Text(
-            if (isRegisterMode) "Create your account" else "Log in to continue",
-            fontSize = 14.sp,
-            color = LoginTextSecondary
-        )
-        Spacer(Modifier.height(32.dp))
+
+        if (!viewModel.cloudConfigured) {
+            Spacer(Modifier.height(16.dp))
+            AppCard(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(Space.lg)) {
+                    Text("Cloud sync not configured", style = RowTitleStyle, color = Ink)
+                    Spacer(Modifier.height(Space.xs))
+                    Text(
+                        "Add supabase.url and supabase.anonKey to client/local.properties " +
+                            "and rebuild. Everything else works without it.",
+                        style = CaptionStyle,
+                        color = InkMuted
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(28.dp))
 
         OutlinedTextField(
             value = email,
-            onValueChange = { email = it; errorText = null },
+            onValueChange = { email = it; localError = null },
             label = { Text("Email") },
             singleLine = true,
+            enabled = !busy,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
             modifier = Modifier.fillMaxWidth()
         )
@@ -79,9 +111,10 @@ fun LoginScreen(
 
         OutlinedTextField(
             value = password,
-            onValueChange = { password = it; errorText = null },
+            onValueChange = { password = it; localError = null },
             label = { Text("Password") },
             singleLine = true,
+            enabled = !busy,
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             modifier = Modifier.fillMaxWidth()
@@ -89,48 +122,52 @@ fun LoginScreen(
 
         errorText?.let {
             Spacer(Modifier.height(8.dp))
-            Text(it, color = LoginErrorRed, fontSize = 13.sp)
+            Text(it, style = CaptionStyle, color = Danger)
         }
 
         Spacer(Modifier.height(20.dp))
 
         Button(
-            onClick = {
-                when {
-                    email.isBlank() || password.isBlank() ->
-                        errorText = "Please fill in both fields"
-                    !email.contains("@") ->
-                        errorText = "Enter a valid email address"
-                    password.length < 6 ->
-                        errorText = "Password must be at least 6 characters"
-                    else -> {
-                        errorText = null
-                        // UI-only for now — wire to Firebase Auth here later,
-                        // e.g. FirebaseAuth.getInstance().signInWithEmailAndPassword(...)
-                        onLoginSuccess()
-                    }
-                }
-            },
+            onClick = { submit() },
+            enabled = !busy && viewModel.cloudConfigured,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = LoginPurpleMid)
+            shape = Radius.chip,
+            colors = ButtonDefaults.buttonColors(containerColor = Indigo500)
         ) {
-            Text(if (isRegisterMode) "Register" else "Login", fontSize = 16.sp)
+            if (busy) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    strokeWidth = 2.dp,
+                    color = Color.White
+                )
+            } else {
+                Text(if (isRegisterMode) "Register" else "Sign in", style = RowTitleStyle)
+            }
         }
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(8.dp))
 
         TextButton(
-            onClick = { isRegisterMode = !isRegisterMode; errorText = null },
+            onClick = { isRegisterMode = !isRegisterMode; localError = null; viewModel.clearCloudMessage() },
+            enabled = !busy,
             modifier = Modifier.align(Alignment.CenterHorizontally)
         ) {
             Text(
-                if (isRegisterMode) "Already have an account? Login"
+                if (isRegisterMode) "Already have an account? Sign in"
                 else "Don't have an account? Register",
-                color = LoginPurpleDark,
-                fontSize = 13.sp
+                color = Ink,
+                style = CaptionStyle
             )
+        }
+
+        TextButton(
+            onClick = onLoginSuccess,
+            enabled = !busy,
+            modifier = Modifier.align(Alignment.CenterHorizontally)
+        ) {
+            Text("Skip — use without an account", color = InkMuted, style = CaptionStyle)
         }
     }
 }

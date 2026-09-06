@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Cleartext HTTP is allowed ONLY for the local ML server during development
+  (the Android emulator reaches the host machine at 10.0.2.2, and
+  `adb reverse tcp:8000 tcp:8000` maps it to 127.0.0.1 on a real device).
+
+  Everything else - including Supabase - is HTTPS-only, because the app-wide
+  android:usesCleartextTraffic="true" it replaces would have permitted
+  plaintext to any host.
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">10.0.2.2</domain>
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <domain includeSubdomains="false">localhost</domain>
+    </domain-config>
+
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

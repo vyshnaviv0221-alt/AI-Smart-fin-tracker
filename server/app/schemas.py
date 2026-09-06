@@ -14,6 +14,8 @@ class CategoryResponse(BaseModel):
 class AnomalyResponse(BaseModel):
     amount: float
     status: str  # "normal" | "UNUSUAL"
+    category: str  # category the amount was judged against
+    deviation: float  # robust z-score of log(amount) within that category
 
 
 class PredictionRequest(BaseModel):

@@ -1,0 +1,11 @@
+{
+  "best_model": "logistic_regression",
+  "train_rows": 637,
+  "real_train_rows": 37,
+  "synthetic_rows": 600,
+  "test_rows_real_heldout": 17,
+  "accuracy": 0.9412,
+  "macro_f1": 0.9467,
+  "weighted_f1": 0.9373,
+  "caveat": "Test set is only the held-out portion of 54 hand-labelled rows. Small-sample accuracy: report the count alongside the percentage."
+}

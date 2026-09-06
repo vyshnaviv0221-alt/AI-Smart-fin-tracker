@@ -1,0 +1,32 @@
+{
+  "model": "RandomForestRegressor (category one-hot only)",
+  "target": "log1p(monthly amount per category)",
+  "samples": 299,
+  "categories": 22,
+  "months": 45,
+  "cv_folds": 5,
+  "results": {
+    "randomforest_category_only": {
+      "r2": 0.1072,
+      "mae_rupees": 1954.93,
+      "rmse_rupees": 6761.71
+    },
+    "randomforest_month_category": {
+      "r2": -0.2434,
+      "mae_rupees": 2171.63,
+      "rmse_rupees": 6783.99
+    },
+    "baseline_category_mean": {
+      "r2": 0.1013,
+      "mae_rupees": 1961.42,
+      "rmse_rupees": 6767.17
+    },
+    "baseline_global_mean": {
+      "r2": 0.0,
+      "mae_rupees": 2036.81,
+      "rmse_rupees": 6844.86
+    }
+  },
+  "month_feature_dropped_because": "one-hot(Month, Category) scored worse than category alone on identical folds; ~3 observations per (month, category) cell means the month split fits noise.",
+  "note": "All metrics are out-of-fold (cross_val_predict), never in-sample."
+}

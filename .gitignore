@@ -21,3 +21,6 @@ venv/
 # ---- OS ----
 .DS_Store
 Thumbs.db
+
+# Gradle wrapper jar is committed; distributions are not
+client/.gradle/
