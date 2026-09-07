@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Sampled from the icon artwork's own corners so the adaptive
+         background matches the photo and no seam shows at the mask edge. -->
+    <color name="ic_launcher_background">#262826</color>
+</resources>
