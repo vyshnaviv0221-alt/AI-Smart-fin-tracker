@@ -2,6 +2,7 @@ package com.example.aismartexpensetracker
 
 import android.util.Log
 import com.example.aismartexpensetracker.network.ApiService
+import com.example.aismartexpensetracker.network.CorrectionRequest
 import com.example.aismartexpensetracker.network.PredictionRequest
 import com.example.aismartexpensetracker.network.RetrofitClient
 import com.example.aismartexpensetracker.network.TransactionRequest
@@ -108,6 +109,24 @@ object ExpenseRepository {
         }
 
         return CaptureResult.Saved(newId, finalCategory)
+    }
+
+    /**
+     * Reports a user's category correction to the server as training data.
+     *
+     * Best effort and deliberately silent: the correction is already saved in
+     * Room, so the user's view is correct whether or not the server is
+     * reachable. Failing to improve the model is not a reason to bother them.
+     */
+    suspend fun reportCorrection(merchant: String, category: String, amount: Double) {
+        try {
+            val response = api.sendCorrection(
+                CorrectionRequest(merchant_text = merchant, category = category, amount = amount)
+            )
+            Log.d(TAG, "Correction sent: $merchant -> $category (${response.recorded} held)")
+        } catch (e: Exception) {
+            Log.i(TAG, "Could not send correction; it is still saved locally (${e.message})")
+        }
     }
 
     /**

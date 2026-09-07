@@ -12,4 +12,8 @@ interface ApiService {
 
     @POST("predict")
     suspend fun predictExpense(@Body request: PredictionRequest): PredictionResponse
+
+    /** Sends a human-verified category back so the model can learn from it. */
+    @POST("feedback/correction")
+    suspend fun sendCorrection(@Body request: CorrectionRequest): CorrectionResponse
 }

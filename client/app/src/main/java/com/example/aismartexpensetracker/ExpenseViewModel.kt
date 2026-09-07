@@ -211,7 +211,21 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
      * the correction propagates immediately.
      */
     fun correctCategory(expenseId: Int, newCategory: String) {
-        viewModelScope.launch { dao.updateCategory(expenseId, newCategory) }
+        viewModelScope.launch {
+            val before = dao.findById(expenseId)
+            dao.updateCategory(expenseId, newCategory)
+
+            // Send the verified label upstream so it becomes training data.
+            // Only when the category actually changed -- re-picking the same
+            // one is not new information.
+            if (before != null && before.category != newCategory) {
+                ExpenseRepository.reportCorrection(
+                    merchant = before.merchant,
+                    category = newCategory,
+                    amount = before.amount
+                )
+            }
+        }
     }
 
     fun setBudget(category: String, monthlyLimit: Double) {

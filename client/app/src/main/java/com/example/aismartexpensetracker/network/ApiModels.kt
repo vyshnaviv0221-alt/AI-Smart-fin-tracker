@@ -27,3 +27,22 @@ data class PredictionResponse(
     val category: String,
     val predicted_amount: Double
 )
+
+/**
+ * A category the user corrected by hand.
+ *
+ * Sent to the server so it becomes training data. This is the project's only
+ * source of real in-domain labels: a merchant string that actually arrived on
+ * this phone, categorised by the person who made the purchase.
+ */
+data class CorrectionRequest(
+    val merchant_text: String,
+    val category: String,
+    val amount: Double
+)
+
+data class CorrectionResponse(
+    val recorded: Int,
+    val for_this_category: Int,
+    val message: String
+)

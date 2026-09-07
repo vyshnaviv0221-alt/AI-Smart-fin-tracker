@@ -10,15 +10,18 @@ Run locally:
 Then check http://127.0.0.1:8000/docs for interactive Swagger UI.
 """
 
+import json
 import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 
-from app import model_loader
+from app import feedback_store, model_loader
 from app.schemas import (
     AnomalyResponse,
     CategoryResponse,
+    CorrectionRequest,
+    CorrectionResponse,
     DailyForecastPoint,
     DailyForecastRequest,
     DailyForecastResponse,
@@ -84,7 +87,20 @@ async def health():
         "message": "AI Smart Finance Tracker API is running.",
         "models_ready": ready,
         "error": None if ready else _startup_error,
+        # What the current models were actually trained on. Exposed so the
+        # answer to "is this real or a demo?" is checkable rather than claimed.
+        "training_data": _provenance(),
+        "corrections_recorded": feedback_store.count_corrections(),
     }
+
+
+def _provenance() -> dict:
+    path = model_loader.MODELS_DIR / "provenance.json"
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except Exception:
+        return {"error": "provenance.json missing -- run train_server_models.py"}
 
 
 @app.post("/categorize", response_model=CategoryResponse)
@@ -95,11 +111,13 @@ async def categorize_transaction(req: TransactionRequest):
         raise HTTPException(status_code=400, detail="merchant_text cannot be empty")
 
     try:
-        category, confidence = model_loader.predict_category(req.merchant_text, req.amount)
+        category, confidence, source = model_loader.predict_category(
+            req.merchant_text, req.amount
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Categorization failed: {e}")
 
-    return CategoryResponse(category=category, confidence=confidence)
+    return CategoryResponse(category=category, confidence=confidence, source=source)
 
 
 @app.post("/anomaly", response_model=AnomalyResponse)
@@ -195,4 +213,36 @@ async def forecast_daily(req: DailyForecastRequest):
             "Indicative only: this model explains about 9% of day-to-day "
             "variance in the training data."
         ),
+    )
+
+
+@app.post("/feedback/correction", response_model=CorrectionResponse)
+async def record_correction(req: CorrectionRequest):
+    """
+    Records a category the user corrected in the app.
+
+    This is the only source of real, in-domain labelled data the project
+    generates: a merchant string that genuinely appeared on someone's phone,
+    categorised by a human who knew what the purchase was. Corrections are
+    appended to server/data/corrections.csv and folded into the training set
+    the next time train_server_models.py runs -- and because synthetic rows
+    are only generated for categories short of real examples, every correction
+    directly displaces generated data.
+    """
+    try:
+        total = feedback_store.record_correction(
+            merchant_text=req.merchant_text,
+            category=req.category,
+            amount=req.amount,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Could not record correction: {e}")
+
+    counts = feedback_store.category_counts()
+    return CorrectionResponse(
+        recorded=total,
+        for_this_category=counts.get(req.category.strip(), 0),
+        message="Correction recorded. Re-run train_server_models.py to fold it in.",
     )

@@ -12,6 +12,8 @@ import joblib
 import numpy as np
 import pandas as pd
 
+from app import feedback_store
+
 MODELS_DIR = Path(__file__).resolve().parent.parent / "models"
 
 _categorizer = None
@@ -91,17 +93,25 @@ def models_ready() -> bool:
     )
 
 
-def predict_category(merchant_text: str, amount: float = 0.0) -> tuple[str, float]:
+def predict_category(merchant_text: str, amount: float = 0.0) -> tuple[str, float, str]:
     """
-    Returns (category, confidence 0-1).
+    Returns (category, confidence 0-1, source).
 
-    `amount` is accepted for API symmetry but not used: making it a feature
-    lets the amount decide the category, which would make /anomaly circular
-    (an amount is always normal for the category its own size implies).
+    A merchant the user has already corrected is returned directly, before the
+    model is consulted: a human-verified label outranks a probabilistic guess,
+    and re-guessing it would make the correction feel ignored.
+
+    `amount` is accepted for API symmetry but not used as a feature: letting
+    the amount decide the category makes /anomaly circular, since an amount is
+    then always normal for the category its own size implies.
     """
+    remembered = feedback_store.lookup(merchant_text)
+    if remembered:
+        return remembered, 1.0, "user_correction"
+
     category = _categorizer.predict([merchant_text])[0]
     confidence = float(np.max(_categorizer.predict_proba([merchant_text])[0]))
-    return category, confidence
+    return category, confidence, "model"
 
 
 def predict_anomaly(amount: float, merchant_text: str = "") -> tuple[str, str, float]:
@@ -115,7 +125,7 @@ def predict_anomaly(amount: float, merchant_text: str = "") -> tuple[str, str, f
     category = "__global__"
     if merchant_text.strip():
         try:
-            category = _categorizer.predict([merchant_text])[0]
+            category = feedback_store.lookup(merchant_text) or _categorizer.predict([merchant_text])[0]
         except Exception:
             category = "__global__"
 
