@@ -76,11 +76,16 @@ def models_ready() -> bool:
     )
 
 
-def predict_category(merchant_text: str) -> tuple[str, float]:
-    """Returns (category, confidence 0-1)."""
+def predict_category(merchant_text: str, amount: float = 0.0) -> tuple[str, float]:
+    """
+    Returns (category, confidence 0-1).
+
+    `amount` is accepted for API symmetry but not used: making it a feature
+    lets the amount decide the category, which would make /anomaly circular
+    (an amount is always normal for the category its own size implies).
+    """
     category = _categorizer.predict([merchant_text])[0]
-    proba = _categorizer.predict_proba([merchant_text])[0]
-    confidence = float(np.max(proba))
+    confidence = float(np.max(_categorizer.predict_proba([merchant_text])[0]))
     return category, confidence
 
 

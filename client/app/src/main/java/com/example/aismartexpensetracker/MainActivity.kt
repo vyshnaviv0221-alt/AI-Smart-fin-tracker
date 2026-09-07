@@ -7,6 +7,9 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.VisibilityThreshold
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawingPadding
@@ -72,9 +75,18 @@ private fun AppNavHost() {
     val vm: ExpenseViewModel = viewModel()
     val reduced = LocalReducedMotion.current
 
-    val duration = 280
-    val fade = tween<Float>(durationMillis = duration)
-    val slide = tween<IntOffset>(durationMillis = duration)
+    // The slide is a spring, not a tween. A spring animates from the value
+    // currently on screen, so interrupting a transition -- swiping back while
+    // a screen is still arriving -- redirects from where it actually is
+    // instead of restarting. Critically damped: navigation should settle, not
+    // wobble. The fade stays a short tween because opacity has no momentum to
+    // preserve and a spring on alpha reads as a flicker.
+    val slide = spring<IntOffset>(
+        dampingRatio = Spring.DampingRatioNoBouncy,
+        stiffness = Spring.StiffnessMediumLow,
+        visibilityThreshold = IntOffset.VisibilityThreshold
+    )
+    val fade = tween<Float>(durationMillis = 180)
 
     NavHost(
         navController = navController,

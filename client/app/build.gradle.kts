@@ -44,10 +44,32 @@ android {
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"${localProperty("supabase.anonKey")}\"")
     }
 
+    signingConfigs {
+        // The release build is signed with the debug key so it can be
+        // installed and profiled locally. A debug build is not representative
+        // of runtime performance: it is debuggable, skips R8, and runs Compose
+        // with extra instrumentation. Replace this before any real
+        // distribution.
+        create("localRelease") {
+            val debugStore = File(System.getProperty("user.home"), ".android/debug.keystore")
+            if (debugStore.exists()) {
+                storeFile = debugStore
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
+    }
+
     buildTypes {
         release {
+            // Minification stays off: Retrofit and Gson resolve the network
+            // models reflectively, so enabling R8 needs keep rules that have
+            // not been written or tested yet. The measurable win here comes
+            // from the build no longer being debuggable.
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.getByName("localRelease")
         }
     }
     compileOptions {

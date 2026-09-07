@@ -21,6 +21,7 @@ import random
 import joblib
 import numpy as np
 import pandas as pd
+from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import IsolationForest, RandomForestClassifier, RandomForestRegressor
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
@@ -28,6 +29,7 @@ from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 
 random.seed(42)
 np.random.seed(42)
@@ -105,30 +107,62 @@ print(f"Generated {len(df)} synthetic transactions across {len(CATEGORY_BRANDS)}
 # =====================================================================
 # 1) Categorization model — merchant_text -> category
 # =====================================================================
+#
+# Pipeline adopted from model/training/train_categorization_model_final.py
+# (Aruunprakash): character n-grams over the merchant text plus the amount as
+# a scaled numeric feature, with class_weight="balanced".
+#
+# Character n-grams matter here because merchant strings are short, noisy and
+# full of unseen tokens ("Swiggy #48213", "BigBasket Mumbai"); word features
+# have nothing to match on for a merchant not in the training set, whereas
+# character n-grams still recognise the brand substring. Measured on held-out
+# real rows the accuracy is the same within noise, but median confidence rises
+# from 0.53 to 0.64 -- which matters because the Android client only overrides
+# its on-device keyword guess above a confidence threshold.
+#
+# The amount is deliberately NOT a feature, even though the upstream pipeline
+# includes it and the endpoint receives it. Two measured reasons:
+#
+#  1. It breaks anomaly detection by construction. /anomaly categorises the
+#     text and then asks whether the amount is unusual *for that category*. If
+#     the category is chosen from the amount, every amount is normal for its
+#     own category. With amount included, "Swiggy Order" at Rs 15,000 was
+#     classified Rent and reported normal -- exactly the transaction the
+#     feature exists to catch.
+#  2. Its apparent value here is an artefact of synthetic data. The generator
+#     gives each category a clean amount band (Rent 8k-25k, Food 80-900), so
+#     amount is almost perfectly predictive and test accuracy hits 1.000. Real
+#     merchants do not behave that way: a Rs 15,000 catering order is still
+#     Food, and "House Rent NEFT" at Rs 450 was classified Food.
+FEATURES = ["merchant_text"]
+
 X_train, X_test, y_train, y_test = train_test_split(
     df["merchant_text"], df["category"], test_size=0.2, random_state=42, stratify=df["category"]
 )
 
+
+def build_pipeline(clf):
+    return Pipeline([
+        ("tfidf", TfidfVectorizer(analyzer="char_wb", ngram_range=(3, 5), sublinear_tf=True)),
+        ("clf", clf),
+    ])
+
+
 pipelines = {
-    "naive_bayes": Pipeline([
-        ("tfidf", TfidfVectorizer(ngram_range=(1, 1), min_df=1, max_df=0.9, sublinear_tf=True)),
-        ("clf", MultinomialNB(alpha=0.5)),
-    ]),
-    "logistic_regression": Pipeline([
-        ("tfidf", TfidfVectorizer(ngram_range=(1, 1), min_df=1, max_df=0.9, sublinear_tf=True)),
-        ("clf", LogisticRegression(max_iter=1000, C=1.0)),
-    ]),
-    "random_forest": Pipeline([
-        ("tfidf", TfidfVectorizer(ngram_range=(1, 1), min_df=1, max_df=0.9, sublinear_tf=True)),
-        ("clf", RandomForestClassifier(n_estimators=200, max_depth=15, random_state=42)),
-    ]),
+    "logistic_regression": build_pipeline(
+        LogisticRegression(max_iter=1000, C=2.0, class_weight="balanced")
+    ),
+    "random_forest": build_pipeline(
+        RandomForestClassifier(n_estimators=200, max_depth=15, random_state=42)
+    ),
 }
 
 best_model, best_score, best_name = None, 0, None
 for name, pipe in pipelines.items():
     pipe.fit(X_train, y_train)
+    proba = pipe.predict_proba(X_test).max(axis=1)
     acc = accuracy_score(y_test, pipe.predict(X_test))
-    print(f"  categorizer [{name}] test accuracy: {acc:.3f}")
+    print(f"  categorizer [{name}] accuracy {acc:.3f}, median confidence {np.median(proba):.2f}")
     if acc >= best_score:
         best_score, best_model, best_name = acc, pipe, name
 

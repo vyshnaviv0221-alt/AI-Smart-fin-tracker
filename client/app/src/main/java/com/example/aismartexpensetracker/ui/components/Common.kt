@@ -1,6 +1,7 @@
 package com.example.aismartexpensetracker.ui.components
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.foundation.BorderStroke
@@ -16,8 +17,12 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -143,6 +148,14 @@ fun ScreenTitle(
  * Animating the fill rather than snapping it means a budget that moves from
  * 40% to 95% reads as a change, not as a different screen. Colour animates
  * too, so crossing into "over budget" is a transition rather than a cut.
+ *
+ * The fill animates on first appearance and whenever the value changes -- but
+ * NOT when the row is merely recycled. In a LazyColumn, scrolling an item off
+ * screen disposes it and scrolling back recreates it; a plain
+ * animateFloatAsState restarts from zero every time, so bars visibly re-fill
+ * on every scroll. Remembering the last shown value across that disposal
+ * (rememberSaveable, retained per item key) means a recycled row is rebuilt
+ * already at its value and only a real change animates.
  */
 @Composable
 fun AnimatedBar(
@@ -153,11 +166,17 @@ fun AnimatedBar(
     track: Color = TrackGrey
 ) {
     val reduced = LocalReducedMotion.current
-    val animated by animateFloatAsState(
-        targetValue = progress.coerceIn(0f, 1f),
-        animationSpec = if (reduced) snap() else Motion.gentle(),
-        label = "barFill"
-    )
+    val target = progress.coerceIn(0f, 1f)
+
+    var lastShown by rememberSaveable { mutableFloatStateOf(0f) }
+    val fill = remember { Animatable(lastShown) }
+
+    LaunchedEffect(target, reduced) {
+        if (reduced) fill.snapTo(target) else fill.animateTo(target, Motion.gentle())
+        lastShown = target
+    }
+    val animated = fill.value
+
     val animatedColor by animateColorAsState(
         targetValue = color,
         animationSpec = if (reduced) snap() else Motion.standard(),

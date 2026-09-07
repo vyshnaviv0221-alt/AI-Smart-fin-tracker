@@ -75,9 +75,9 @@ print("=" * 60)
 print("   EXPENSE FORECASTING ENGINE RESULTS (Daily Household CSV)   ")
 print("=" * 60)
 print(f"Total Aggregated Days Analyzed : {len(daily_df)}")
-print(f"Mean Absolute Error (MAE)      : ₹{mae:.2f}")
-print(f"Root Mean Squared Error (RMSE) : ₹{rmse:.2f}")
-print(f"R² Score                       : {r2:.4f}")
+print(f"Mean Absolute Error (MAE)      : Rs {mae:.2f}")
+print(f"Root Mean Squared Error (RMSE) : Rs {rmse:.2f}")
+print(f"R2 Score                       : {r2:.4f}")
 
 # 6. Save Model Artifact
 model_output_path = ARTIFACTS_DIR / "expense_forecaster_model.joblib"

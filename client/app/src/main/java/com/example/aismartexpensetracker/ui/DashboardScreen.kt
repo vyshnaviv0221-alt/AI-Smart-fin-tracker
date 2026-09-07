@@ -1,6 +1,6 @@
 package com.example.aismartexpensetracker.ui
 
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.snap
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -203,12 +204,17 @@ fun DashboardScreen(
  */
 @Composable
 private fun SpendHeroCard(totalSpent: Double, totalBudget: Double?) {
+    // Counts to the new value on first appearance and on a real change, but
+    // does not replay from zero every time you navigate back to the dashboard.
     val reduced = LocalReducedMotion.current
-    val shown by animateFloatAsState(
-        targetValue = totalSpent.toFloat(),
-        animationSpec = if (reduced) snap() else Motion.gentle(),
-        label = "totalSpent"
-    )
+    val target = totalSpent.toFloat()
+    var lastShown by rememberSaveable { mutableFloatStateOf(0f) }
+    val counter = remember { Animatable(lastShown) }
+    LaunchedEffect(target, reduced) {
+        if (reduced) counter.snapTo(target) else counter.animateTo(target, Motion.gentle())
+        lastShown = target
+    }
+    val shown = counter.value
 
     AppCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(Space.xl)) {

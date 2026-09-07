@@ -92,7 +92,7 @@ async def categorize_transaction(req: TransactionRequest):
         raise HTTPException(status_code=400, detail="merchant_text cannot be empty")
 
     try:
-        category, confidence = model_loader.predict_category(req.merchant_text)
+        category, confidence = model_loader.predict_category(req.merchant_text, req.amount)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Categorization failed: {e}")
 
