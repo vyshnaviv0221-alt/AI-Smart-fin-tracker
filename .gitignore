@@ -24,3 +24,7 @@ Thumbs.db
 
 # Gradle wrapper jar is committed; distributions are not
 client/.gradle/
+# Large training CSVs are no longer tracked (Git LFS was removed upstream).
+# The files already committed stay tracked; this stops new ones being added.
+database/raw/*.csv
+model/training/*.csv
