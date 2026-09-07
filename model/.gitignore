@@ -1,11 +1,21 @@
-# Trained models are generated output -- regenerate them with the scripts
-# in model/training/ rather than committing binaries.
+# Trained model artifacts.
 #
-# The artifacts previously committed here were saved with scikit-learn
-# 0.24 and no longer load on scikit-learn 1.x. They remain recoverable
-# from git history if ever needed:
-#   git checkout 77c2fd1 -- model/artifacts/final_expense_model.pkl
-*.pkl
-*.joblib
-*.json
-!.gitignore
+# These three ARE tracked. They are the project's deliverables: the team needs
+# to share them, and a blanket "*.joblib" rule here is what silently swallowed
+# an earlier "exported as joblib file" commit -- git accepted the commit and
+# dropped the model, so the push looked successful and contained nothing.
+# Together they are ~7 MB, which is fine for a normal git object.
+#
+#   artifacts/expense_category_model.joblib     transaction categorizer
+#   artifacts/expense_forecaster_model.joblib   daily spend forecaster
+#   artifacts/anomaly_model.joblib              + anomaly_category_stats.json
+#
+# Everything else in artifacts/ is scratch output from a training run and
+# stays ignored, including the pre-2024 scikit-learn 0.24 pickles that no
+# longer load on 1.x (recoverable from history at 77c2fd1 if ever needed).
+artifacts/*
+!artifacts/.gitignore
+!artifacts/expense_category_model.joblib
+!artifacts/expense_forecaster_model.joblib
+!artifacts/anomaly_model.joblib
+!artifacts/anomaly_category_stats.json

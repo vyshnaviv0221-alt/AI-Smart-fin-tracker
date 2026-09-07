@@ -26,3 +26,29 @@ class PredictionRequest(BaseModel):
 class PredictionResponse(BaseModel):
     category: str
     predicted_amount: float
+
+
+class DailyForecastRequest(BaseModel):
+    """
+    Recent daily spend totals, oldest first.
+
+    The model's two strongest features are yesterday's total and the 7-day
+    rolling mean, so the client sends what it already has in Room rather than
+    the server keeping any per-user history.
+    """
+    recent_daily_totals: list[float]
+    days_ahead: int = 7
+
+
+class DailyForecastPoint(BaseModel):
+    date: str
+    predicted_amount: float
+
+
+class DailyForecastResponse(BaseModel):
+    total: float
+    days: list[DailyForecastPoint]
+    # Straight from the model's evaluation, so the client can be honest about
+    # how much weight to give this number.
+    r2: float
+    note: str

@@ -105,3 +105,56 @@ also tested and did not help.
 The result correctly separates Rs 15,000 on Rent (normal) from Rs 15,000 on
 Food (unusual), and no longer flags Rs 450 rent or a Rs 50 coffee. See
 `evaluation/anomaly_flags_by_category.csv`.
+
+
+## Trained artifacts (tracked)
+
+`artifacts/` now tracks the three deliverable models, ~7 MB total:
+
+| file | what it is | trained by |
+|---|---|---|
+| `expense_category_model.joblib` | 26-class household categorizer, 0.912 on 544 held-out real rows | `train_categorization_model_final.py` |
+| `expense_forecaster_model.joblib` | daily total-spend RandomForest, out-of-fold R2 0.09 | `predict_expense.py` |
+| `anomaly_model.joblib` + `anomaly_category_stats.json` | per-category deviation detector | `anomaly_detection.py` |
+
+A blanket `*.joblib` ignore rule used to sit here. It is why an earlier
+"exported as joblib file" commit contained no joblib: git accepted the commit
+and silently dropped the model, so the push looked successful.
+
+## Which model serves what
+
+The app does **not** use `expense_category_model.joblib`, and that is not an
+oversight:
+
+- It emits the household dataset's 26 labels (`Transportation`,
+  `subscription`, `maid`, `garbage disposal`, ...). The Android app knows ten,
+  and has an icon, colour, budget row and correction entry for each of those.
+- It is trained on expense-diary text (`Subcategory` + `Note` + `Mode`, e.g.
+  "Idli medu Vada mix 2 plates"), not merchant names. Fed the merchant strings
+  the app actually sends, it scored **0 of 12** -- "House Rent NEFT" came back
+  as `Tourism`.
+
+Both facts were measured, not assumed. The model is good at its own task; the
+task differs from the app's.
+
+Two attempts were made to bridge that gap and both were rejected on evidence:
+
+1. **Map the household labels onto the app's ten and train on both.**
+   `category_mapping.py` holds that mapping (kept, because it is useful for
+   analysis). Adding 1,979 mapped household rows to the merchant training set
+   left accuracy unchanged at 0.947 and made individual predictions *worse* --
+   "Swiggy Bangalore" confidence fell 0.70 to 0.36. The vocabularies do not
+   overlap, so the extra rows dilute the merchant signal.
+2. **Serve the daily forecaster to the Predictions screen.** See
+   `/forecast/daily` in `server/app/main.py`. Sweeping recent spend from
+   Rs 0/day to Rs 35,000/day moves the 7-day forecast with a correlation of
+   only +0.281, non-monotonically: Rs 0/day forecasts Rs 9,735 while
+   Rs 1,000/day forecasts Rs 7,438. It cannot be shown as "your predicted
+   spend" without misleading people.
+
+What *was* adopted from the upstream work is the categorizer's architecture --
+character n-grams (`char_wb`, 3-5) rather than word TF-IDF. Merchant strings
+are short and full of unseen tokens; word features have nothing to match on
+for a merchant not in training, while character n-grams still find the brand.
+Retraining the server's own 10-category model that way lifted median
+confidence on real merchant probes from 0.53 to 0.75.

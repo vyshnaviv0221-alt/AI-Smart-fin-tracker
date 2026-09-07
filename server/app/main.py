@@ -19,6 +19,9 @@ from app import model_loader
 from app.schemas import (
     AnomalyResponse,
     CategoryResponse,
+    DailyForecastPoint,
+    DailyForecastRequest,
+    DailyForecastResponse,
     PredictionRequest,
     PredictionResponse,
     TransactionRequest,
@@ -139,3 +142,57 @@ async def predict_expense(req: PredictionRequest):
         raise HTTPException(status_code=500, detail=f"Prediction failed: {e}")
 
     return PredictionResponse(category=req.category, predicted_amount=predicted_amount)
+
+
+@app.post("/forecast/daily", response_model=DailyForecastResponse)
+async def forecast_daily(req: DailyForecastRequest):
+    """
+    Projects the next few days of total spend from the caller's recent daily
+    totals, using the RandomForest trained in model/training/predict_expense.py.
+
+    Unlike /predict this is not per-category: it forecasts the daily total,
+    which is what that model was built for.
+
+    NOT WIRED TO THE APP UI, deliberately. Measured by sweeping recent spend
+    from Rs 0/day to Rs 35,000/day and reading the 7-day forecast back:
+
+        correlation(recent spend, forecast) = +0.281
+        monotonic increases: 5 of 13 steps
+        a user spending Rs 0/day is forecast Rs 9,735, while one spending
+        Rs 1,000/day is forecast Rs 7,438
+
+    The forecast does not reliably rise with spending, so showing it as "your
+    predicted spend" would tell some users they are about to spend more
+    *because* they spent less. In a tool people use to control money that is
+    worse than showing nothing. The endpoint stays because the model is a real
+    project deliverable and this keeps it reachable and testable; the response
+    carries r2 so any caller can see what it is worth.
+    """
+    if not model_loader.daily_forecaster_ready():
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Daily forecaster not loaded. Copy "
+                "model/artifacts/expense_forecaster_model.joblib to "
+                "server/models/daily_forecaster.joblib and restart."
+            ),
+        )
+    if not 1 <= req.days_ahead <= 31:
+        raise HTTPException(status_code=400, detail="days_ahead must be between 1 and 31")
+    if any(v < 0 for v in req.recent_daily_totals):
+        raise HTTPException(status_code=400, detail="daily totals cannot be negative")
+
+    try:
+        points = model_loader.predict_daily_spend(req.recent_daily_totals, req.days_ahead)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Daily forecast failed: {e}")
+
+    return DailyForecastResponse(
+        total=round(sum(amount for _, amount in points), 2),
+        days=[DailyForecastPoint(date=d, predicted_amount=a) for d, a in points],
+        r2=model_loader.DAILY_FORECAST_R2,
+        note=(
+            "Indicative only: this model explains about 9% of day-to-day "
+            "variance in the training data."
+        ),
+    )
