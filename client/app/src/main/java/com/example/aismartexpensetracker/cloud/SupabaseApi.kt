@@ -12,6 +12,8 @@ import retrofit2.http.Query
 
 data class CredentialsRequest(val email: String, val password: String)
 
+data class RefreshRequest(val refresh_token: String)
+
 data class AuthUser(val id: String, val email: String?)
 
 data class AuthResponse(
@@ -68,6 +70,20 @@ interface SupabaseApi {
         @Header("apikey") apiKey: String,
         @Query("grant_type") grantType: String = "password",
         @Body body: CredentialsRequest
+    ): Response<AuthResponse>
+
+    /**
+     * Exchanges a refresh token for a new access token.
+     *
+     * Same endpoint as sign-in with a different grant_type, which is why it
+     * takes no email or password -- the refresh token is the credential.
+     */
+    @Headers("Content-Type: application/json")
+    @POST("auth/v1/token")
+    suspend fun refresh(
+        @Header("apikey") apiKey: String,
+        @Query("grant_type") grantType: String = "refresh_token",
+        @Body body: RefreshRequest
     ): Response<AuthResponse>
 
     @POST("auth/v1/logout")

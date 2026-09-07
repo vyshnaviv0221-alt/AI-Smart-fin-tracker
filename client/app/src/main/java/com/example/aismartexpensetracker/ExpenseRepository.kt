@@ -85,13 +85,23 @@ object ExpenseRepository {
 
             val result = api.categorize(request)
             // Take the server's answer when it is reasonably confident, or
-            // whenever the keyword list had no opinion at all.
+            // whenever the keyword list had no opinion at all -- but only if it
+            // is a category this app actually knows. A retrained model can emit
+            // a label the client has never heard of, and an unknown category
+            // silently disappears from every chart, filter and budget that
+            // enumerates ALL_CATEGORIES: the money would be logged and then
+            // invisible. Falling back to the on-device guess is worse only in
+            // accuracy, not in correctness.
             val keywordAbstained = localCategory == CategoryKeywords.UNCATEGORIZED
-            if (result.confidence >= MIN_SERVER_CONFIDENCE || keywordAbstained) {
+            val known = result.category in CategoryKeywords.ALL_CATEGORIES
+            if (!known) {
+                Log.w(TAG, "Server returned unknown category '${result.category}'; keeping $localCategory")
+            }
+            if (known && (result.confidence >= MIN_SERVER_CONFIDENCE || keywordAbstained)) {
                 dao.updateCategory(newId, result.category)
                 finalCategory = result.category
                 Log.d(TAG, "Server refined -> ${result.category} (${result.confidence})")
-            } else {
+            } else if (known) {
                 Log.d(
                     TAG,
                     "Server confidence ${result.confidence} below threshold; keeping $localCategory"

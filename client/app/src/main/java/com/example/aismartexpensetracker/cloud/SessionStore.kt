@@ -30,6 +30,10 @@ class SessionStore(context: Context) {
         const val KEY_EMAIL = "email"
         const val KEY_USER_ID = "user_id"
         const val KEY_LAST_SYNCED_AT = "last_synced_at"
+        const val KEY_EXPIRES_AT = "expires_at"
+
+        /** Refresh this long before the token actually expires. */
+        const val EXPIRY_MARGIN_MS = 60_000L
     }
 
     private val prefs: SharedPreferences = try {
@@ -49,6 +53,7 @@ class SessionStore(context: Context) {
     }
 
     val accessToken: String? get() = prefs.getString(KEY_ACCESS_TOKEN, null)
+    val refreshToken: String? get() = prefs.getString(KEY_REFRESH_TOKEN, null)
     val email: String? get() = prefs.getString(KEY_EMAIL, null)
     val userId: String? get() = prefs.getString(KEY_USER_ID, null)
     val isSignedIn: Boolean get() = !accessToken.isNullOrBlank()
@@ -61,13 +66,38 @@ class SessionStore(context: Context) {
         get() = prefs.getLong(KEY_LAST_SYNCED_AT, 0L)
         set(value) = prefs.edit().putLong(KEY_LAST_SYNCED_AT, value).apply()
 
+    /**
+     * Wall-clock millis at which the access token stops being accepted.
+     *
+     * Supabase access tokens last one hour. Without this the app kept using a
+     * token past its expiry and every sync failed with 401 while the UI still
+     * reported "Synced" -- silent data loss an hour into a session.
+     */
+    val expiresAt: Long get() = prefs.getLong(KEY_EXPIRES_AT, 0L)
+
+    /**
+     * True shortly *before* real expiry. The margin matters because the token
+     * is checked before a request, not during it: a token with four seconds
+     * left passes the check and then expires in flight.
+     */
+    fun needsRefresh(nowMs: Long = System.currentTimeMillis()): Boolean =
+        expiresAt != 0L && nowMs >= expiresAt - EXPIRY_MARGIN_MS
+
     fun save(response: AuthResponse) {
-        prefs.edit()
+        // GoTrue's refresh response can omit the user object; keep what we have
+        // rather than blanking the signed-in identity on a successful refresh.
+        val editor = prefs.edit()
             .putString(KEY_ACCESS_TOKEN, response.access_token)
-            .putString(KEY_REFRESH_TOKEN, response.refresh_token)
-            .putString(KEY_EMAIL, response.user?.email)
-            .putString(KEY_USER_ID, response.user?.id)
-            .apply()
+            .putLong(
+                KEY_EXPIRES_AT,
+                response.expires_in?.let { System.currentTimeMillis() + it * 1000 } ?: 0L
+            )
+        if (!response.refresh_token.isNullOrBlank()) {
+            editor.putString(KEY_REFRESH_TOKEN, response.refresh_token)
+        }
+        response.user?.email?.let { editor.putString(KEY_EMAIL, it) }
+        response.user?.id?.let { editor.putString(KEY_USER_ID, it) }
+        editor.apply()
     }
 
     /** Signing out drops the watermark too, so the next account syncs in full. */

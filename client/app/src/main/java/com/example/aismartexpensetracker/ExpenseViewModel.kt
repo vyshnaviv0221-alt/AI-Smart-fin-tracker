@@ -316,6 +316,13 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
                             "to client/local.properties, then rebuild.",
                         isError = true
                     )
+                // Cannot arise from sign-in itself; handled so the `when` stays
+                // exhaustive and a future caller is forced to think about it.
+                CloudResult.SessionExpired -> {
+                    _signedInEmail.value = null
+                    _cloudState.value =
+                        CloudState.Message("Session expired. Sign in again.", isError = true)
+                }
             }
         }
     }
@@ -357,6 +364,12 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
                 }
                 is CloudResult.Failed -> CloudState.Message(result.message, true)
                 CloudResult.NotConfigured -> CloudState.Message("Supabase not configured", true)
+                // The session is already cleared; drop the signed-in email too so
+                // the UI cannot keep showing an account that can no longer write.
+                CloudResult.SessionExpired -> {
+                    _signedInEmail.value = null
+                    CloudState.Message("Session expired. Sign in again.", true)
+                }
             }
         }
     }

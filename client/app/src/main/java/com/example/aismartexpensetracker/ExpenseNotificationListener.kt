@@ -120,6 +120,10 @@ class ExpenseNotificationListener : NotificationListenerService() {
                 is CloudResult.Ok -> Log.d(TAG, "Synced to Supabase")
                 is CloudResult.Failed -> Log.w(TAG, "Supabase sync failed: ${result.message}")
                 CloudResult.NotConfigured -> Log.i(TAG, "Supabase not configured; local only.")
+                // Nothing to do from a background service: the row is saved
+                // locally and will upload on the next sync after re-signing in.
+                CloudResult.SessionExpired ->
+                    Log.w(TAG, "Supabase session expired; saved locally, sign in again to sync.")
             }
         } catch (e: Exception) {
             Log.w(TAG, "Cloud sync error; transaction is saved locally", e)

@@ -20,6 +20,15 @@ sealed interface CloudResult<out T> {
     data class Ok<T>(val value: T) : CloudResult<T>
     data class Failed(val message: String) : CloudResult<Nothing>
     data object NotConfigured : CloudResult<Nothing>
+
+    /**
+     * The stored session could not be renewed and has been cleared.
+     *
+     * Distinct from [Failed] because it is the one failure the user can
+     * actually act on, and because callers must stop showing themselves as
+     * signed in -- a "Synced" badge over a dead session is worse than an error.
+     */
+    data object SessionExpired : CloudResult<Nothing>
 }
 
 /**
@@ -132,29 +141,90 @@ object SupabaseClient {
      */
     suspend fun syncExpenses(store: SessionStore, expenses: List<Expense>): CloudResult<Int> {
         val client = api ?: return CloudResult.NotConfigured
-        val token = store.accessToken ?: return CloudResult.Failed("Not signed in")
         if (expenses.isEmpty()) return CloudResult.Ok(0)
+        if (!store.isSignedIn) return CloudResult.Failed("Not signed in")
+
+        val rows = expenses.map { expense ->
+            RemoteExpense(
+                merchant = expense.merchant,
+                amount = expense.amount,
+                category = expense.category,
+                occurred_at = timestampFormat.format(java.util.Date(expense.date)),
+                is_anomaly = expense.isAnomaly,
+                client_id = expense.syncId
+            )
+        }
+
+        // Refresh proactively when the token is about to expire...
+        var token = usableToken(client, store) ?: return CloudResult.SessionExpired
 
         return try {
-            val rows = expenses.map { expense ->
-                RemoteExpense(
-                    merchant = expense.merchant,
-                    amount = expense.amount,
-                    category = expense.category,
-                    occurred_at = timestampFormat.format(java.util.Date(expense.date)),
-                    is_anomaly = expense.isAnomaly,
-                    client_id = expense.syncId
-                )
+            var response = client.upsertExpenses(anonKey, "Bearer $token", rows)
+
+            // ...and reactively if the server rejects it anyway. Clock skew and
+            // a session revoked server-side both produce a 401 on a token this
+            // device still believes is valid, so the expiry check alone is not
+            // enough.
+            if (response.code() == 401) {
+                Log.i(TAG, "Access token rejected; refreshing and retrying once")
+                token = refreshToken(client, store) ?: return CloudResult.SessionExpired
+                response = client.upsertExpenses(anonKey, "Bearer $token", rows)
             }
-            val response = client.upsertExpenses(anonKey, "Bearer $token", rows)
-            if (response.isSuccessful) {
-                CloudResult.Ok(rows.size)
-            } else {
-                CloudResult.Failed(readError(response.errorBody()?.string()))
+
+            when {
+                response.isSuccessful -> CloudResult.Ok(rows.size)
+                response.code() == 401 -> {
+                    store.clear()
+                    CloudResult.SessionExpired
+                }
+                else -> CloudResult.Failed(readError(response.errorBody()?.string()))
             }
         } catch (e: Exception) {
             Log.w(TAG, "Sync failed", e)
             CloudResult.Failed(e.message ?: "Could not reach Supabase")
+        }
+    }
+
+    // ---------------- token lifetime ----------------
+    //
+    // Supabase access tokens last one hour. Before this, the app stored the
+    // refresh token and never used it: roughly an hour after sign-in every
+    // write started failing with 401 while the UI still reported success.
+
+    /** A token believed good, refreshing first if it is at or near expiry. */
+    private suspend fun usableToken(client: SupabaseApi, store: SessionStore): String? =
+        if (store.needsRefresh()) refreshToken(client, store) else store.accessToken
+
+    /**
+     * Exchanges the refresh token for a new access token.
+     *
+     * Returns null when the session is unrecoverable, and clears it in that
+     * case so the app stops presenting itself as signed in. A network error is
+     * NOT unrecoverable -- the session is kept so a later sync can succeed.
+     */
+    private suspend fun refreshToken(client: SupabaseApi, store: SessionStore): String? {
+        val refresh = store.refreshToken
+        if (refresh.isNullOrBlank()) {
+            store.clear()
+            return null
+        }
+        return try {
+            val response = client.refresh(anonKey, body = RefreshRequest(refresh))
+            val body = response.body()
+            if (response.isSuccessful && body?.access_token != null) {
+                store.save(body)
+                body.access_token
+            } else {
+                Log.w(TAG, "Refresh rejected (${response.code()}); session cleared")
+                store.clear()
+                null
+            }
+        } catch (e: Exception) {
+            // Offline. Keep the session: the token may still be inside its hour,
+            // and discarding a valid refresh token would sign the user out for
+            // nothing more than a dropped connection.
+            Log.i(TAG, "Could not refresh (offline?); keeping session", e)
+            store.accessToken
         }
     }
 
