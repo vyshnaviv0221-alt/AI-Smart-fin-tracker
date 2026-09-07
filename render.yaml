@@ -2,10 +2,9 @@
 #
 # Deploy: Render dashboard > New > Blueprint > pick this repository.
 #
-# The models are NOT in the repository (server/.gitignore excludes *.joblib,
-# because they are build output, not source). They are trained during the
-# build instead, which also guarantees they are built with the exact
-# scikit-learn version in requirements.txt -- a model saved by one major
+# The models ARE committed under server/models/, so a clone runs without a
+# training pass. The build retrains them anyway: that guarantees they match
+# the scikit-learn actually installed here, and a model saved by one major
 # version does not reliably load in another.
 
 services:

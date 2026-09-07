@@ -110,7 +110,7 @@ explicitly; HTTPS hosts work with no change.
 cd server
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt      # Python 3.11+
-python train_server_models.py        # models are build output, not committed
+python train_server_models.py        # optional: the models are committed
 uvicorn app.main:app --host 0.0.0.0 --port 8081
 adb reverse tcp:8081 tcp:8081        # for a physical phone
 ```
@@ -124,8 +124,9 @@ curl http://localhost:8081/
 ### Hosting the ML server (optional)
 
 `render.yaml` deploys the server to Render: dashboard → New → Blueprint → pick
-this repository. The build trains the models, since the `.joblib` files are
-git-ignored build output. Then set `server.baseUrl` to the service URL and
+this repository. The build retrains the models rather than using the
+committed ones, so a hosted instance always has models built against its own
+installed scikit-learn. Then set `server.baseUrl` to the service URL and
 rebuild the app.
 
 Hosting removes the laptop from the demo entirely — no USB, no `adb reverse`,
@@ -231,8 +232,9 @@ AI-SMART-FINANCE-TRACKER/
 |   |   |-- model_loader.py         # artifact loading + prediction
 |   |   |-- feedback_store.py       # user corrections as training data
 |   |   `-- schemas.py              # Pydantic request/response models
+|   |-- models/                    # trained models, committed (~5 MB)
 |   |-- tests/test_api.py           # 30 endpoint tests
-|   |-- train_server_models.py      # builds server/models/
+|   |-- train_server_models.py      # rebuilds server/models/
 |   `-- requirements.txt
 |
 |-- model/                          # research / offline ML work
@@ -264,7 +266,7 @@ AI-SMART-FINANCE-TRACKER/
 # Client -- 46 tests
 cd client && ./gradlew test
 
-# Server -- 30 tests (train the models first)
+# Server -- 30 tests
 cd server && python -m pytest -q
 ```
 

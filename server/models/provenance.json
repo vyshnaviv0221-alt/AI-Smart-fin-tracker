@@ -1,0 +1,9 @@
+{
+  "total_rows": 400,
+  "real_rows": 55,
+  "synthetic_rows": 345,
+  "real_share_pct": 13.8,
+  "user_corrections": 1,
+  "seed_rows": 54,
+  "min_real_per_category": 40
+}
