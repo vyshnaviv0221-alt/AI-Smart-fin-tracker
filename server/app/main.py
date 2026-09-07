@@ -5,9 +5,9 @@ Loads the trained models from ../models/ at startup and serves three
 endpoints the Android app calls: categorize, anomaly check, and forecast.
 
 Run locally:
-    uvicorn app.main:app --reload --port 8000
+    uvicorn app.main:app --reload --port 8081
 
-Then check http://127.0.0.1:8000/docs for interactive Swagger UI.
+Then check http://127.0.0.1:8081/docs for interactive Swagger UI.
 """
 
 import json

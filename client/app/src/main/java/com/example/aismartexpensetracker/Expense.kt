@@ -28,18 +28,19 @@ data class Expense(
     val isAnomaly: Boolean = false,
 
     /**
-     * Stable identity for cloud sync.
+     * Stable identity for a transaction, independent of the row id.
      *
-     * The row id cannot be used: it restarts at 1 whenever the local database
-     * is recreated, so after a wipe-and-resync a new row would upsert over a
-     * different transaction already stored under the same (user_id, client_id)
-     * key in Supabase.
+     * Originally added for cloud sync, which has since been removed. It is
+     * kept because dropping a uniquely-indexed column costs a Room migration
+     * for no user-visible gain, and because a row id is not a safe identity:
+     * ids restart at 1 whenever the database is recreated, so anything that
+     * has to refer to a transaction across a wipe (an export, a backup file,
+     * a future sync) needs this instead.
      */
     val syncId: String = UUID.randomUUID().toString(),
 
     /**
-     * Last local modification. Bumped on insert and on every update, so sync
-     * can send only what changed instead of the whole table each time.
+     * Last local modification. Bumped on insert and on every update.
      */
     val updatedAt: Long = System.currentTimeMillis()
 )

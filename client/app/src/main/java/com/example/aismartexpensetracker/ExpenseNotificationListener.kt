@@ -3,9 +3,6 @@ package com.example.aismartexpensetracker
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
-import com.example.aismartexpensetracker.cloud.CloudResult
-import com.example.aismartexpensetracker.cloud.SessionStore
-import com.example.aismartexpensetracker.cloud.SupabaseClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -57,7 +54,6 @@ class ExpenseNotificationListener : NotificationListenerService() {
      */
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    private val sessionStore by lazy { SessionStore(applicationContext) }
 
     override fun onDestroy() {
         serviceScope.cancel()
@@ -95,38 +91,12 @@ class ExpenseNotificationListener : NotificationListenerService() {
         serviceScope.launch {
             // Deduplication is ON here: banks and UPI apps genuinely re-post
             // the same alert, and Android re-delivers notifications on update.
-            val result = ExpenseRepository.captureExpense(
+            ExpenseRepository.captureExpense(
                 dao = dao,
                 merchant = parsed.merchant,
                 amount = parsed.amount,
                 deduplicate = true
             )
-            if (result !is CaptureResult.Saved) return@launch
-
-            // 3. Best-effort cloud sync. Never allowed to affect local capture.
-            syncToCloud(dao, result.id)
-        }
-    }
-
-    private suspend fun syncToCloud(dao: ExpenseDao, expenseId: Int) {
-        if (!sessionStore.isSignedIn) {
-            Log.i(TAG, "Not signed in; transaction saved locally only.")
-            return
-        }
-        try {
-            // Read back so the row carries the enriched category / anomaly flag.
-            val saved = dao.findById(expenseId) ?: return
-            when (val result = SupabaseClient.syncExpenses(sessionStore, listOf(saved))) {
-                is CloudResult.Ok -> Log.d(TAG, "Synced to Supabase")
-                is CloudResult.Failed -> Log.w(TAG, "Supabase sync failed: ${result.message}")
-                CloudResult.NotConfigured -> Log.i(TAG, "Supabase not configured; local only.")
-                // Nothing to do from a background service: the row is saved
-                // locally and will upload on the next sync after re-signing in.
-                CloudResult.SessionExpired ->
-                    Log.w(TAG, "Supabase session expired; saved locally, sign in again to sync.")
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "Cloud sync error; transaction is saved locally", e)
         }
     }
 }

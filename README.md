@@ -6,7 +6,7 @@ An offline-first, intelligent personal finance tracking ecosystem. The platform 
 
 ## Architecture Overview
 
-The system consists of an Android client, a FastAPI machine learning microservice, an offline-first SQLite/Room storage layer, and an optional Supabase cloud synchronization service.
+The system consists of an Android client, a FastAPI machine learning microservice, and an on-device SQLite/Room storage layer. There is no account and no cloud database: every transaction stays on the phone.
 
 ```
 [Bank / UPI Notification]
@@ -24,7 +24,6 @@ The system consists of an Android client, a FastAPI machine learning microservic
      |-- 3. Asynchronous ML enrichment via FastAPI:
      |        |-- POST /categorize -> High-confidence model classification
      |        `-- POST /anomaly    -> Category-aware deviation flagging
-     `-- 4. Cloud synchronization to Supabase via REST (if authenticated)
            |
            v
 [Reactive UI Layer] (Jetpack Compose observing unified Room Flow)
@@ -60,8 +59,7 @@ The application functions strictly **offline-first**:
 ### 3. Security, Authentication, and Privacy
 - **Android Network Security Configuration**: Added `network_security_config.xml` to restrict cleartext HTTP traffic strictly to local development loopbacks (`127.0.0.1` and `10.0.2.2`), completely removing application-wide `usesCleartextTraffic`.
 - **Encrypted Credential Storage**: Implemented `SessionStore.kt` utilizing Android `EncryptedSharedPreferences` backed by hardware `MasterKey` encryption to secure authentication tokens, with graceful fallback.
-- **Decoupled Cloud Backend**: Replaced heavy Firebase SDKs with direct, lightweight REST calls to Supabase (GoTrue authentication and PostgREST API) through existing Retrofit networking.
-- **Database Row-Level Security (RLS)**: Authored `supabase/schema.sql` configuring strict PostgreSQL Row-Level Security policies ensuring authenticated users can access only their own transactions and budgets.
+- **On-Device Only**: Financial data is never transmitted to a cloud database and no account is required. Room on the device is the single source of truth, which removes the entire class of risk that comes with storing other people's transactions on a server.
 - **Secrets Segregation**: Configured build configurations to read endpoints and API keys from `local.properties` rather than hardcoding credentials in version control.
 - **Sanitized Logging**: Configured HTTP logging interceptors at `BASIC` level to prevent logging sensitive authentication headers or payload tokens into system logcat.
 
@@ -102,7 +100,6 @@ AI-SMART-FINANCE-TRACKER/
 |   |-- app/
 |   |   |-- src/main/java/          # Kotlin source files
 |   |   |   `-- com/example/aismartexpensetracker/
-|   |   |       |-- cloud/          # Supabase REST client & session store
 |   |   |       |-- network/        # Retrofit ML client & data models
 |   |   |       |-- ui/             # Compose screens, components & design system
 |   |   |       `-- ...             # Database entities, DAOs, parser & listener
@@ -129,7 +126,6 @@ AI-SMART-FINANCE-TRACKER/
 |   |-- processed/                  # Derived datasets
 |   `-- upi_transactions/           # Labeled UPI transaction splits
 |
-`-- supabase/
     `-- schema.sql                  # PostgreSQL schema with Row-Level Security
 ```
 
@@ -141,10 +137,8 @@ AI-SMART-FINANCE-TRACKER/
 |---|---|---|
 | Mobile Client | Kotlin 2.4, Jetpack Compose | Modern declarative UI and reactive state |
 | Local Database | Room (SQLite) v3, KSP 2.3.11 | Offline-first persistence and observable queries |
-| Networking | Retrofit 2, OkHttp 3, Gson | REST communication with ML server and Supabase |
+| Networking | Retrofit 2, OkHttp 3, Gson | REST communication with the ML server |
 | Security | AndroidX Security Crypto (1.1.0) | Hardware-backed EncryptedSharedPreferences |
-| Cloud Database | Supabase (PostgreSQL 15) | Row-Level Security cloud data storage |
-| Cloud Auth | Supabase GoTrue REST API | User authentication and session token issuance |
 | Machine Learning | scikit-learn, joblib, pandas | TF-IDF categorization, Isolation Forest, Random Forest |
 | Backend Server | FastAPI, Uvicorn, Pydantic | Asynchronous microservice delivering model inferences |
 | Build Tooling | Gradle 9.7.1, AGP 9.4.0, JDK 25 | Android build automation and dependency resolution |
@@ -153,54 +147,68 @@ AI-SMART-FINANCE-TRACKER/
 
 ## Setup and Installation
 
-### 1. Android Client Setup
+### 1. Quick start (Windows)
+
+Double-click **`start-server.bat`** in the project root. On a machine that has
+never seen this project it will create the virtual environment, install
+dependencies, train the models, and bridge the phone over USB. Later runs skip
+whatever is already done. Leave the window open -- the server runs in it.
+
+**`stop-server.bat`** stops it and removes the USB bridge, for when that window
+has been closed or a previous run left the port occupied.
+
+The server listens on **port 8081**, and `adb reverse` maps the phone's
+`127.0.0.1:8081` to the same port here -- one number on both sides. Port 8000
+is deliberately avoided: it is heavily used on Android, and a busy device port
+makes `adb reverse` fail.
+
+### 2. Android Client Setup
 1. Ensure Android Studio (Ladybug or newer) and JDK 17+ are installed.
 2. Copy `client/local.properties.example` to `client/local.properties`.
 3. Configure the parameters in `local.properties`:
    ```properties
    sdk.dir=/path/to/android/sdk
-   ml.serverUrl=http://127.0.0.1:8000/
-   supabase.url=https://your-project.supabase.co
-   supabase.anonKey=your-supabase-anon-key
+   server.baseUrl=http://127.0.0.1:8081/
    ```
 4. Build the project:
    ```bash
    cd client
    ./gradlew assembleDebug
    ```
-5. If testing on physical hardware with a local machine learning server, forward the local server port via adb:
-   ```bash
-   adb reverse tcp:8000 tcp:8000
-   ```
 
-### 2. Backend ML Server Setup
-1. Navigate to the `server/` directory:
+### 3. Backend ML Server Setup (manual, non-Windows)
+
+`start-server.bat` does all of this. Do it by hand only on macOS or Linux.
+
+1. Create and activate a virtual environment (**Python 3.11+**):
    ```bash
    cd server
+   python3 -m venv .venv
+   source .venv/bin/activate
    ```
-2. Create and activate a Python virtual environment:
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: .\venv\Scripts\activate
-   ```
-3. Install dependencies:
+2. Install dependencies:
    ```bash
    pip install -r requirements.txt
    ```
-4. Start the development server:
+3. Train the models. The `.joblib` files are build output, not source, so they
+   are git-ignored and a fresh clone has none. Every prediction endpoint
+   returns 503 until this has run:
    ```bash
-   uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+   python train_server_models.py
    ```
-5. Verify health:
+4. Start the server:
    ```bash
-   curl http://localhost:8000/health
+   uvicorn app.main:app --host 0.0.0.0 --port 8081
    ```
-
-### 3. Supabase Cloud Configuration
-1. Create a new project in the Supabase Dashboard.
-2. Open the SQL Editor and execute the statements from `supabase/schema.sql`.
-3. Retrieve your project URL and public anonymous key from the API Settings tab.
-4. Supply these values into `client/local.properties`.
+5. Verify. Health is served at the root, not `/health`, and reports where the
+   training data came from:
+   ```bash
+   curl http://localhost:8081/
+   ```
+6. For a physical phone, bridge it over USB:
+   ```bash
+   adb reverse tcp:8081 tcp:8081
+   ```
 
 ---
 

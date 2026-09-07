@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,7 +22,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.aismartexpensetracker.CloudState
 import com.example.aismartexpensetracker.ExpenseViewModel
 import com.example.aismartexpensetracker.ui.components.*
 import com.example.aismartexpensetracker.ui.theme.*
@@ -30,15 +31,11 @@ private fun isListenerEnabled(context: Context): Boolean =
 
 @Composable
 fun ProfileScreen(
-    onLogout: () -> Unit = {},
     viewModel: ExpenseViewModel = viewModel()
 ) {
     val context = LocalContext.current
     val stats by viewModel.profileStats.collectAsState()
-    val email by viewModel.signedInEmail.collectAsState()
-    val cloudState by viewModel.cloudState.collectAsState()
     var listenerEnabled by remember { mutableStateOf(isListenerEnabled(context)) }
-    var showLogoutConfirm by remember { mutableStateOf(false) }
 
     // Re-check on resume: the user grants access in system Settings and returns.
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -60,10 +57,13 @@ fun ProfileScreen(
             .padding(horizontal = Space.lg)
     ) {
         Spacer(Modifier.height(Space.sm))
-        ScreenTitle(text = "Profile", subtitle = "Account, sync and permissions")
+        ScreenTitle(text = "Profile", subtitle = "Storage and permissions")
         Spacer(Modifier.height(Space.xl))
 
-        // ---- Account ----
+        // ---- Where the data lives ----
+        // There is no account. Everything is in Room on this device, which is
+        // worth stating plainly: a user who sees no sign-in should know that
+        // means "private", not "not set up yet".
         AppCard(Modifier.fillMaxWidth()) {
             Row(Modifier.padding(Space.xl), verticalAlignment = Alignment.CenterVertically) {
                 Box(
@@ -73,58 +73,21 @@ fun ProfileScreen(
                         .background(Indigo500),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        (email?.firstOrNull() ?: '?').uppercaseChar().toString(),
-                        style = StatStyle,
-                        color = SurfaceWhite
+                    Icon(
+                        Icons.Rounded.PhoneAndroid,
+                        contentDescription = null,
+                        tint = SurfaceWhite
                     )
                 }
                 Spacer(Modifier.width(Space.lg))
                 Column {
-                    Text(email ?: "Not signed in", style = RowTitleStyle, color = Ink)
+                    Text("Stored on this device", style = RowTitleStyle, color = Ink)
                     Spacer(Modifier.height(Space.xxs))
                     Text(
-                        when {
-                            email != null -> "Synced with Supabase"
-                            !viewModel.cloudConfigured -> "Cloud sync not configured"
-                            else -> "Saved on this device only"
-                        },
+                        "No account, no cloud. Your transactions never leave this phone.",
                         style = CaptionStyle,
                         color = InkMuted
                     )
-                }
-            }
-        }
-
-        if (email != null) {
-            Spacer(Modifier.height(Space.md))
-            AppCard(Modifier.fillMaxWidth()) {
-                Row(
-                    Modifier.padding(Space.xl),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Cloud sync", style = RowTitleStyle, color = Ink)
-                        Spacer(Modifier.height(Space.xxs))
-                        Text(
-                            when (val s = cloudState) {
-                                is CloudState.Busy -> "Syncing…"
-                                is CloudState.Message -> s.text
-                                else -> "Push local transactions to Supabase"
-                            },
-                            style = CaptionStyle,
-                            color = if ((cloudState as? CloudState.Message)?.isError == true)
-                                Danger else InkMuted
-                        )
-                    }
-                    Spacer(Modifier.width(Space.md))
-                    Button(
-                        onClick = { viewModel.syncNow() },
-                        enabled = cloudState !is CloudState.Busy,
-                        shape = Radius.chip,
-                        colors = ButtonDefaults.buttonColors(containerColor = Indigo500)
-                    ) { Text("Sync", style = RowTitleStyle) }
                 }
             }
         }
@@ -201,57 +164,6 @@ fun ProfileScreen(
             }
         }
 
-        Spacer(Modifier.height(Space.xxl))
-
-        OutlinedButton(
-            onClick = { showLogoutConfirm = true },
-            modifier = Modifier.fillMaxWidth(),
-            shape = Radius.chip,
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = Danger)
-        ) {
-            Text(
-                if (email != null) "Sign out" else "Go to sign in",
-                style = RowTitleStyle
-            )
-        }
-
         Spacer(Modifier.height(Space.xxxl))
-    }
-
-    if (showLogoutConfirm) {
-        AlertDialog(
-            onDismissRequest = { showLogoutConfirm = false },
-            shape = Radius.sheet,
-            containerColor = SurfaceWhite,
-            title = {
-                Text(
-                    if (email != null) "Sign out?" else "Go to sign in?",
-                    style = SectionStyle,
-                    color = Ink
-                )
-            },
-            text = {
-                Text(
-                    if (email != null)
-                        "Your transactions stay on this device. Cloud sync stops " +
-                            "until you sign in again."
-                    else "You'll be taken to the sign-in screen.",
-                    style = BodyStyle,
-                    color = InkMuted
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    if (email != null) viewModel.signOut()
-                    showLogoutConfirm = false
-                    onLogout()
-                }) { Text("Continue", style = RowTitleStyle, color = Danger) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showLogoutConfirm = false }) {
-                    Text("Cancel", style = RowTitleStyle, color = InkMuted)
-                }
-            }
-        )
     }
 }

@@ -11,15 +11,15 @@ object RetrofitClient {
 
     /**
      * Set with `server.baseUrl` in client/local.properties; defaults to
-     * http://127.0.0.1:8000/.
+     * http://127.0.0.1:8081/.
      *
-     *   REAL PHONE  -> http://127.0.0.1:8000/ plus `adb reverse tcp:8000 tcp:8000`,
+     *   REAL PHONE  -> http://127.0.0.1:8081/ plus `adb reverse tcp:8081 tcp:8081`,
      *                  which tunnels the phone's localhost to the laptop over USB.
      *                  This needs no Wi-Fi and is immune to networks that block
      *                  client-to-client traffic, so it is the reliable demo path.
-     *   EMULATOR    -> http://10.0.2.2:8000/  (the emulator's alias for the host)
-     *   SAME WI-FI  -> http://<laptop-LAN-IP>:8000/, with the server started as
-     *                  `uvicorn app.main:app --host 0.0.0.0 --port 8000`
+     *   EMULATOR    -> http://10.0.2.2:8081/  (the emulator's alias for the host)
+     *   SAME WI-FI  -> http://<laptop-LAN-IP>:8081/, with the server started as
+     *                  `uvicorn app.main:app --host 0.0.0.0 --port 8081`
      *
      * Cleartext HTTP is permitted only for these local hosts -- see
      * res/xml/network_security_config.xml.

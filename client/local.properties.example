@@ -1,10 +1,11 @@
 # Copy to local.properties and fill in. local.properties is git-ignored.
 #
 # Android SDK location (Android Studio sets this automatically):
-# sdk.dir=C\:\Users\you\AppData\Local\Android\Sdk
+# sdk.dir=C:/Users/you/AppData/Local/Android/Sdk
 
-# Supabase -- Project Settings > API in the Supabase dashboard.
-# The anon key is safe to ship in a client; row-level security is what
-# protects the data. Never put the service_role key here.
-supabase.url=https://YOUR-PROJECT-REF.supabase.co
-supabase.anonKey=YOUR-ANON-PUBLIC-KEY
+# Where the ML server is. Defaults to http://127.0.0.1:8081/ if unset.
+#   USB (start-server.bat sets up the bridge) -> http://127.0.0.1:8081/
+#   emulator                                  -> http://10.0.2.2:8081/
+#   same Wi-Fi                                -> http://<laptop-LAN-IP>:8081/
+#   hosted                                    -> https://your-service.onrender.com/
+server.baseUrl=http://127.0.0.1:8081/

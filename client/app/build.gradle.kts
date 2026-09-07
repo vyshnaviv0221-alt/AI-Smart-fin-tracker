@@ -6,48 +6,15 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
-// Supabase URL and anon key come from local.properties, which is git-ignored,
-// so credentials are never committed. See client/local.properties.example.
+// server.baseUrl comes from local.properties, which is git-ignored, so a
+// developer's own machine setup is never committed. See
+// client/local.properties.example.
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
     if (file.exists()) file.inputStream().use { load(it) }
 }
 
 fun localProperty(key: String): String = localProperties.getProperty(key).orEmpty()
-
-/**
- * Refuses to build if a privileged Supabase key has been put in the client.
- *
- * Supabase issues two keys and they look similar enough to paste the wrong
- * one. The publishable/anon key is safe to ship: it identifies the project,
- * and row-level security is what actually protects the data. The secret /
- * service_role key BYPASSES row-level security, so shipping it in an APK
- * hands every user's rows to anyone who unzips the file -- and an APK is
- * trivially unzipped.
- *
- * Failing the build is the right response: a warning would be missed.
- */
-fun requirePublishableKey(key: String) {
-    if (key.isBlank()) return
-
-    // Prefix matching only. Decoding the JWT payload to look for a
-    // "service_role" claim was tried and dropped: it added a decode that can
-    // itself fail inside the build script, to catch a legacy key format that
-    // Supabase is retiring. The prefixes below cover both the current keys
-    // (sb_secret_) and the older personal access tokens (sbp_).
-    val privileged = listOf("sb_secret_", "sbp_", "service_role")
-    if (privileged.any { key.startsWith(it) }) {
-        throw GradleException(
-            "supabase.anonKey in local.properties is a SECRET / service_role key. " +
-                "That key bypasses row-level security, so shipping it in an APK exposes " +
-                "every user's data to anyone who unzips the file. " +
-                "Use the publishable (anon) key from Project Settings > API instead, " +
-                "and rotate the secret key."
-        )
-    }
-}
-
-requirePublishableKey(localProperty("supabase.anonKey"))
 
 android {
     namespace = "com.example.aismartexpensetracker"
@@ -66,16 +33,17 @@ android {
         }
 
         // Base URL of the local ML server.
-        //   real phone  -> http://127.0.0.1:8000/  with `adb reverse tcp:8000 tcp:8000`
-        //   emulator    -> http://10.0.2.2:8000/
-        //   same Wi-Fi  -> http://<laptop-LAN-IP>:8000/  (uvicorn --host 0.0.0.0)
+        // Port 8081 on BOTH sides of the USB bridge, so there is one number
+        // to remember. Not 8000: it is heavily used on Android, and a busy
+        // device port makes `adb reverse` fail.
+        //   real phone  -> http://127.0.0.1:8081/  (start-server.bat does the reverse)
+        //   emulator    -> http://10.0.2.2:8081/
+        //   same Wi-Fi  -> http://<laptop-LAN-IP>:8081/
         buildConfigField(
             "String",
             "ML_SERVER_URL",
-            "\"${localProperty("server.baseUrl").ifBlank { "http://127.0.0.1:8000/" }}\""
+            "\"${localProperty("server.baseUrl").ifBlank { "http://127.0.0.1:8081/" }}\""
         )
-        buildConfigField("String", "SUPABASE_URL", "\"${localProperty("supabase.url")}\"")
-        buildConfigField("String", "SUPABASE_ANON_KEY", "\"${localProperty("supabase.anonKey")}\"")
     }
 
     signingConfigs {
@@ -164,15 +132,10 @@ dependencies {
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 
-    // Networking -- used for BOTH the local ML server and Supabase's REST API.
-    // Supabase is reached over plain REST (PostgREST + GoTrue) rather than the
-    // Supabase Kotlin SDK, so there is no extra dependency and no Ktor stack.
+    // Networking -- the ML server's REST API.
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
-
-    // Encrypted storage for the Supabase session token.
-    implementation("androidx.security:security-crypto:1.1.0")
 
     // ViewModel + Compose integration
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
