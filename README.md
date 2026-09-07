@@ -210,6 +210,33 @@ makes `adb reverse` fail.
    adb reverse tcp:8081 tcp:8081
    ```
 
+### 4. Hosting the ML Server (optional)
+
+`render.yaml` deploys the server to Render: dashboard > New > Blueprint > pick
+this repository. The build trains the models, because the `.joblib` files are
+build output and are not committed.
+
+Then point the app at it and rebuild:
+
+```properties
+server.baseUrl=https://your-service.onrender.com/
+```
+
+Hosting removes the laptop from the demo entirely -- no USB, no `adb reverse`,
+no Wi-Fi assumptions -- and gives you HTTPS instead of cleartext.
+
+Two things to know about the free plan:
+
+- **It sleeps after ~15 minutes idle** and cold-starts on the next request.
+  The app allows a 60-second read timeout to cover this. Open the URL once
+  before a demo so the first real request is not the one that wakes it.
+- **The disk is ephemeral.** `server/data/corrections.csv` is wiped on every
+  restart and redeploy. Corrections still take effect immediately in a running
+  instance, but they no longer accumulate into future retraining. This is a
+  real limitation of the free tier, not of the design.
+
+Keep `start-server.bat` working as a fallback: it needs no network at all.
+
 ---
 
 ## Verification and Testing
