@@ -24,3 +24,5 @@ Thumbs.db
 
 # Gradle wrapper jar is committed; distributions are not
 client/.gradle/
+database/raw/*.csv
+model/training/*.csv

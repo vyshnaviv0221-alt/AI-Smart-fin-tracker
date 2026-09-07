@@ -1,258 +1,127 @@
-import json
-import random
-import pandas as pd
+import os
 import joblib
-from sklearn.model_selection import train_test_split, cross_val_score
+import pandas as pd
+import numpy as np
+from pathlib import Path
+
+from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.naive_bayes import MultinomialNB
-from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import classification_report, accuracy_score
+from sklearn.preprocessing import StandardScaler
+from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import classification_report, accuracy_score
 
-from sklearn.metrics import confusion_matrix
+# Resolve paths relative to script location
+SCRIPT_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = SCRIPT_DIR.parents[1]
+ARTIFACTS_DIR = PROJECT_ROOT / "model" / "artifacts"
+ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
 
-from paths import ARTIFACTS, EVALUATION, PROCESSED, RAW, require
+# Locate dataset file
+DATASET_PATH = SCRIPT_DIR / "Daily Household Transactions.csv"
+if not DATASET_PATH.exists():
+    DATASET_PATH = PROJECT_ROOT / "database" / "raw" / "Daily Household Transactions.csv"
 
-random.seed(42)
+if not DATASET_PATH.exists():
+    raise FileNotFoundError(f"Dataset not found at '{DATASET_PATH}'. Please ensure 'Daily Household Transactions.csv' exists.")
 
-# =====================================================================
-# STEP 1: Generate synthetic data to augment the small real dataset
-# =====================================================================
-CITIES = ["Bangalore", "Delhi", "Mumbai", "Hyderabad", "Chennai", "Pune",
-          "Kolkata", "Ahmedabad", "Jaipur", "Kochi", "Noida", "Gurgaon"]
-SUFFIXES = ["Order", "Payment", "Purchase", "Bill", "Transaction", "Store",
-            "Outlet", "Delivery", "Booking", ""]
+print(f"Loading dataset from: {DATASET_PATH}")
+df = pd.read_csv(DATASET_PATH)
 
-CATEGORY_BRANDS = {
-    "Food": ["Swiggy", "Zomato", "McDonalds", "Domino's Pizza", "Starbucks",
-             "KFC", "Burger King", "Pizza Hut", "Cafe Coffee Day",
-             "Subway", "Behrouz Biryani", "Faasos", "Barbeque Nation",
-             "Chaayos", "Wow Momo", "Haldiram's"],
-    "Groceries": ["BigBasket", "DMart", "Reliance Fresh", "More Supermarket",
-                  "Nature's Basket", "Metro Cash and Carry", "Blinkit",
-                  "Zepto", "Star Bazaar", "Spencer's Retail", "JioMart",
-                  "Grofers"],
-    "Travel": ["Uber", "Ola Cabs", "IRCTC Railways", "IndiGo Airlines",
-               "Rapido Bike", "Vistara Airlines", "SpiceJet", "Ola Auto",
-               "RedBus", "MakeMyTrip", "Yatra", "GoAir", "Air India"],
-    "Shopping": ["Amazon", "Flipkart", "Myntra", "Ajio", "Decathlon Sports",
-                 "Croma Electronics", "Nykaa Beauty", "Tata Cliq",
-                 "Reliance Digital", "Lifestyle Stores", "H&M", "Snapdeal"],
-    "Bills": ["Electricity Board", "Airtel Postpaid", "Jio Recharge",
-              "ACT Broadband", "Water Board", "Tata Sky", "Vodafone Idea",
-              "BSNL", "Gas Pipeline", "Urban Company Service",
-              "Hathway Broadband", "MTNL"],
-    "Healthcare": ["Apollo Pharmacy", "Practo Consultation", "Medplus Store",
-                   "Cult Fit Membership", "1mg Pharmacy", "Netmeds",
-                   "Fortis Hospital", "Max Healthcare", "PharmEasy",
-                   "Cure Fit"],
-    "Entertainment": ["PVR Cinemas", "BookMyShow Tickets", "Netflix",
-                       "Spotify Premium", "INOX Movies", "Hotstar",
-                       "Amazon Prime Video", "Cinepolis", "SonyLIV",
-                       "ZEE5 Subscription"],
-    "Investment": ["HDFC Mutual Fund SIP", "Zerodha Trading", "LIC Premium",
-                   "Groww Investment", "ICICI Direct", "Upstox Trading",
-                   "SBI Mutual Fund", "Paytm Money", "Angel One",
-                   "PPF Deposit"],
-    "Rent": ["Rent Payment Landlord", "House Rent NEFT", "Flat Rent Transfer",
-             "PG Rent Payment", "Apartment Rent", "Society Maintenance Rent"],
-    "Transfer": ["PhonePe to Friend", "GPay Transfer", "Paytm Wallet Load",
-                 "UPI Transfer", "Bank NEFT Transfer", "IMPS Transfer",
-                 "Cash Deposit Transfer"],
-}
-
-AMOUNT_RANGES = {
-    "Food": (80, 900), "Groceries": (300, 3000), "Travel": (60, 6000),
-    "Shopping": (400, 6000), "Bills": (150, 2500), "Healthcare": (150, 2000),
-    "Entertainment": (100, 900), "Investment": (1000, 10000),
-    "Rent": (8000, 25000), "Transfer": (100, 5000),
-}
-
-N_PER_CATEGORY = 60
-
-
-def make_text(brand):
-    variant = random.random()
-    if variant < 0.35:
-        return f"{brand} {random.choice(CITIES)}"
-    elif variant < 0.6:
-        suf = random.choice(SUFFIXES)
-        return f"{brand} {suf}".strip()
-    elif variant < 0.8:
-        return f"{brand} #{random.randint(1000, 99999)}"
-    else:
-        return brand
-
-
-synthetic_rows = []
-for category, brands in CATEGORY_BRANDS.items():
-    lo, hi = AMOUNT_RANGES[category]
-    for _ in range(N_PER_CATEGORY):
-        brand = random.choice(brands)
-        synthetic_rows.append({
-            "merchant_text": make_text(brand),
-            "amount": random.randint(lo, hi),
-            "category": category,
-        })
-synthetic_df = pd.DataFrame(synthetic_rows)
-
-# =====================================================================
-# STEP 2: Combine with the real hand-labeled data
-# =====================================================================
-real_df = pd.read_csv(require(RAW / "sample_transactions.csv"))
-
-combined_df = pd.concat([real_df, synthetic_df], ignore_index=True)
-combined_df = combined_df.sample(frac=1, random_state=42).reset_index(drop=True)
-combined_df.to_csv(PROCESSED / "sample_transactions_large.csv", index=False)
-
-print(f"Real rows: {len(real_df)} | Synthetic rows: {len(synthetic_df)} | Combined: {len(combined_df)}")
-print(combined_df['category'].value_counts(), "\n")
-
-# =====================================================================
-# STEP 3: Held-out test set = REAL data only (never trained on)
-#   -- the honest way to check generalization, since testing on synthetic
-#      rows would inflate the score artificially
-# =====================================================================
-real_train, real_test = train_test_split(
-    real_df, test_size=0.3, random_state=42, stratify=real_df["category"]
-)
-train_df = pd.concat([real_train, synthetic_df], ignore_index=True)
-
-X_train, y_train = train_df["merchant_text"], train_df["category"]
-X_test, y_test = real_test["merchant_text"], real_test["category"]
-
-print(f"Training on {len(train_df)} rows, testing on {len(real_test)} REAL (unseen) rows\n")
-
-# =====================================================================
-# STEP 4: Pipelines -- unigrams + min_df=2 instead of bigrams + min_df=1
-#   (bigrams on ~54 real rows created more features than samples, the
-#    main cause of the overfitting)
-# =====================================================================
-pipelines = {
-    "naive_bayes": Pipeline([
-        ("tfidf", TfidfVectorizer(ngram_range=(1, 1), min_df=2, max_df=0.9,
-                                   sublinear_tf=True)),
-        ("clf", MultinomialNB(alpha=0.5)),
-    ]),
-    "logistic_regression": Pipeline([
-        ("tfidf", TfidfVectorizer(ngram_range=(1, 1), min_df=2, max_df=0.9,
-                                   sublinear_tf=True)),
-        ("clf", LogisticRegression(max_iter=1000, C=1.0)),
-    ]),
-    "random_forest": Pipeline([
-        ("tfidf", TfidfVectorizer(ngram_range=(1, 1), min_df=2, max_df=0.9,
-                                   sublinear_tf=True)),
-        ("clf", RandomForestClassifier(n_estimators=200, max_depth=15,
-                                        random_state=42)),
-    ]),
-}
-
-best_model, best_score, best_name = None, 0, None
-
-for name, pipe in pipelines.items():
-    cv_scores = cross_val_score(pipe, X_train, y_train, cv=5)
-    pipe.fit(X_train, y_train)
-
-    train_acc = accuracy_score(y_train, pipe.predict(X_train))
-    test_acc = accuracy_score(y_test, pipe.predict(X_test))
-
-    print(f"=== {name} ===")
-    print(f"CV accuracy (5-fold, train set): {cv_scores.mean():.2f} (+/- {cv_scores.std():.2f})")
-    print(f"Train accuracy: {train_acc:.2f}")
-    print(f"Real-data test accuracy: {test_acc:.2f}")
-    print(f"Overfit gap (train - test): {train_acc - test_acc:.2f}")
-    print(classification_report(y_test, pipe.predict(X_test), zero_division=0))
-
-    if test_acc >= best_score:
-        best_score, best_model, best_name = test_acc, pipe, name
-
-print(f"Best model: {best_name} (real-data test accuracy: {best_score:.2f})")
-
-# =====================================================================
-# STEP 5: Save the winning model
-# =====================================================================
-joblib.dump(best_model, ARTIFACTS / "expense_category_model.joblib")
-print(f"Saved model -> {ARTIFACTS / 'expense_category_model.joblib'}")
-
-# =====================================================================
-# STEP 5b: Evaluation artifacts (implementation plan section 8)
-#   Confusion matrix + per-class precision/recall/F1, computed on the
-#   held-out REAL rows only.
-# =====================================================================
-y_pred_best = best_model.predict(X_test)
-labels = sorted(real_df["category"].unique())
-
-cm = confusion_matrix(y_test, y_pred_best, labels=labels)
-cm_df = pd.DataFrame(cm, index=[f"true_{c}" for c in labels], columns=[f"pred_{c}" for c in labels])
-cm_df.to_csv(EVALUATION / "categorizer_confusion_matrix.csv")
-
-report_text = classification_report(y_test, y_pred_best, zero_division=0)
-report_dict = classification_report(y_test, y_pred_best, zero_division=0, output_dict=True)
-
-with open(EVALUATION / "categorizer_report.txt", "w") as f:
-    f.write(f"Best model: {best_name}\n")
-    f.write(f"Trained on {len(train_df)} rows ({len(real_train)} real + {len(synthetic_df)} synthetic)\n")
-    f.write(f"Tested on {len(real_test)} held-out REAL rows\n\n")
-    f.write(report_text)
-    f.write("\n\nConfusion matrix\n")
-    f.write(cm_df.to_string())
-
-with open(EVALUATION / "categorizer_metrics.json", "w") as f:
-    json.dump(
-        {
-            "best_model": best_name,
-            "train_rows": int(len(train_df)),
-            "real_train_rows": int(len(real_train)),
-            "synthetic_rows": int(len(synthetic_df)),
-            "test_rows_real_heldout": int(len(real_test)),
-            "accuracy": round(float(best_score), 4),
-            "macro_f1": round(float(report_dict["macro avg"]["f1-score"]), 4),
-            "weighted_f1": round(float(report_dict["weighted avg"]["f1-score"]), 4),
-            "caveat": (
-                "Test set is only the held-out portion of 54 hand-labelled rows. "
-                "Small-sample accuracy: report the count alongside the percentage."
-            ),
-        },
-        f,
-        indent=2,
+# Check if the loaded file is a Git LFS pointer
+if len(df.columns) == 1 and 'git-lfs' in str(df.columns[0]):
+    raise ValueError(
+        f"File at '{DATASET_PATH}' is a Git LFS pointer file! "
+        f"Please replace it with the actual CSV dataset."
     )
 
-# Optional chart -- skipped silently if matplotlib isn't installed.
-try:
-    import matplotlib
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
+# Clean column names (strip trailing/leading whitespace)
+df.columns = df.columns.str.strip()
 
-    fig, ax = plt.subplots(figsize=(7, 6))
-    ax.imshow(cm, cmap="Blues")
-    ax.set_xticks(range(len(labels)), labels, rotation=45, ha="right")
-    ax.set_yticks(range(len(labels)), labels)
-    ax.set_xlabel("Predicted")
-    ax.set_ylabel("Actual")
-    ax.set_title(f"Categorizer confusion matrix ({best_name})")
-    for i in range(len(labels)):
-        for j in range(len(labels)):
-            ax.text(j, i, cm[i, j], ha="center", va="center", fontsize=9)
-    fig.tight_layout()
-    fig.savefig(EVALUATION / "categorizer_confusion_matrix.png", dpi=150)
-    plt.close(fig)
-    print(f"Saved chart -> {EVALUATION / 'categorizer_confusion_matrix.png'}")
-except ImportError:
-    print("matplotlib not installed - skipped confusion matrix PNG (CSV still written)")
+# Map capitalized column names to standard keys
+if 'Category' in df.columns and 'category' not in df.columns:
+    df = df.rename(columns={'Category': 'category'})
 
-print(f"Saved evaluation -> {EVALUATION}")
+if 'Amount' in df.columns and 'amount' not in df.columns:
+    df = df.rename(columns={'Amount': 'amount'})
 
-# =====================================================================
-# STEP 6: Demo on brand-new, unseen transaction strings
-# =====================================================================
-sample_new = [
-    "Blinkit Grocery Delivery",
-    "SBI Life Insurance Premium",
-    "Uber Eats Order",
-    "Vodafone Idea Recharge",
-]
-predictions = best_model.predict(sample_new)
-print("\n--- Live predictions on unseen text ---")
-for text, pred in zip(sample_new, predictions):
-    print(f"{text:35s} -> {pred}")
+# Filter strictly for expenses if 'Income/Expense' column exists
+if 'Income/Expense' in df.columns:
+    df = df[df['Income/Expense'].astype(str).str.strip().str.lower() == 'expense'].copy()
+
+# Construct merchant_text feature from available string fields
+if 'merchant_text' not in df.columns:
+    sub_col = df['Subcategory'].fillna('') if 'Subcategory' in df.columns else ''
+    note_col = df['Note'].fillna('') if 'Note' in df.columns else ''
+    mode_col = df['Mode'].fillna('') if 'Mode' in df.columns else ''
+    df['merchant_text'] = (sub_col.astype(str) + " " + note_col.astype(str) + " " + mode_col.astype(str)).str.strip()
+
+# Format fields and handle missing values
+df['merchant_text'] = df['merchant_text'].fillna('').astype(str)
+df['amount'] = pd.to_numeric(df['amount'], errors='coerce').fillna(0)
+df['category'] = df['category'].astype(str).str.strip()
+
+# Remove empty or invalid entries
+df = df[(df['merchant_text'] != '') & (df['category'] != '')]
+
+# Remove rare categories with fewer than 2 samples to allow stratified split
+category_counts = df['category'].value_counts()
+valid_categories = category_counts[category_counts >= 2].index
+df = df[df['category'].isin(valid_categories)].reset_index(drop=True)
+
+if len(df) == 0:
+    raise ValueError("Real rows parsed: 0. Ensure your CSV file contains valid transaction records and headers.")
+
+print(f"Successfully loaded {len(df)} real transaction rows.")
+print("\nCategory Distribution:\n", df['category'].value_counts())
+
+X = df[['merchant_text', 'amount']]
+y = df['category']
+
+# 1. Stratified Train / Test Split
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.25, random_state=42, stratify=y
+)
+
+# 2. Preprocessing: TF-IDF for Text + StandardScaler for Numeric Amount
+preprocessor = ColumnTransformer(
+    transformers=[
+        (
+            'text',
+            TfidfVectorizer(
+                analyzer='char_wb',
+                ngram_range=(3, 5),
+                sublinear_tf=True
+            ),
+            'merchant_text'
+        ),
+        (
+            'num',
+            StandardScaler(),
+            ['amount']
+        )
+    ]
+)
+
+# 3. Model Pipeline
+model = Pipeline([
+    ('preprocessor', preprocessor),
+    ('clf', LogisticRegression(max_iter=1000, C=2.0, class_weight='balanced'))
+])
+
+# 4. Train & Evaluate
+model.fit(X_train, y_train)
+y_pred = model.predict(X_test)
+acc = accuracy_score(y_test, y_pred)
+
+print("\n" + "=" * 60)
+print("=== EXPENSE CATEGORIZER MODEL RESULTS ===")
+print("=" * 60)
+print(f"Test Accuracy: {acc:.4f}\n")
+print(classification_report(y_test, y_pred, zero_division=0))
+
+# 5. Save Model Artifact
+model_output_path = ARTIFACTS_DIR / "expense_category_model.joblib"
+joblib.dump(model, model_output_path)
+print(f"Saved trained model artifact -> {model_output_path}")
