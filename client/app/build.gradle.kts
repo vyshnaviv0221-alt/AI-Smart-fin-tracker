@@ -15,6 +15,40 @@ val localProperties = Properties().apply {
 
 fun localProperty(key: String): String = localProperties.getProperty(key).orEmpty()
 
+/**
+ * Refuses to build if a privileged Supabase key has been put in the client.
+ *
+ * Supabase issues two keys and they look similar enough to paste the wrong
+ * one. The publishable/anon key is safe to ship: it identifies the project,
+ * and row-level security is what actually protects the data. The secret /
+ * service_role key BYPASSES row-level security, so shipping it in an APK
+ * hands every user's rows to anyone who unzips the file -- and an APK is
+ * trivially unzipped.
+ *
+ * Failing the build is the right response: a warning would be missed.
+ */
+fun requirePublishableKey(key: String) {
+    if (key.isBlank()) return
+
+    // Prefix matching only. Decoding the JWT payload to look for a
+    // "service_role" claim was tried and dropped: it added a decode that can
+    // itself fail inside the build script, to catch a legacy key format that
+    // Supabase is retiring. The prefixes below cover both the current keys
+    // (sb_secret_) and the older personal access tokens (sbp_).
+    val privileged = listOf("sb_secret_", "sbp_", "service_role")
+    if (privileged.any { key.startsWith(it) }) {
+        throw GradleException(
+            "supabase.anonKey in local.properties is a SECRET / service_role key. " +
+                "That key bypasses row-level security, so shipping it in an APK exposes " +
+                "every user's data to anyone who unzips the file. " +
+                "Use the publishable (anon) key from Project Settings > API instead, " +
+                "and rotate the secret key."
+        )
+    }
+}
+
+requirePublishableKey(localProperty("supabase.anonKey"))
+
 android {
     namespace = "com.example.aismartexpensetracker"
     compileSdk = 37
