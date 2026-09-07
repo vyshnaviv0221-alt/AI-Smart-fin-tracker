@@ -6,8 +6,9 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
-// Supabase URL and anon key come from local.properties, which is git-ignored,
-// so credentials are never committed. See client/local.properties.example.
+// server.baseUrl comes from local.properties, which is git-ignored, so a
+// developer's own machine setup is never committed. See
+// client/local.properties.example.
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
     if (file.exists()) file.inputStream().use { load(it) }
@@ -32,22 +33,45 @@ android {
         }
 
         // Base URL of the local ML server.
-        //   real phone  -> http://127.0.0.1:8000/  with `adb reverse tcp:8000 tcp:8000`
-        //   emulator    -> http://10.0.2.2:8000/
-        //   same Wi-Fi  -> http://<laptop-LAN-IP>:8000/  (uvicorn --host 0.0.0.0)
+        // Port 8081 on BOTH sides of the USB bridge, so there is one number
+        // to remember. Not 8000: it is heavily used on Android, and a busy
+        // device port makes `adb reverse` fail.
+        //   real phone  -> http://127.0.0.1:8081/  (start-server.bat does the reverse)
+        //   emulator    -> http://10.0.2.2:8081/
+        //   same Wi-Fi  -> http://<laptop-LAN-IP>:8081/
         buildConfigField(
             "String",
             "ML_SERVER_URL",
-            "\"${localProperty("server.baseUrl").ifBlank { "http://127.0.0.1:8000/" }}\""
+            "\"${localProperty("server.baseUrl").ifBlank { "http://127.0.0.1:8081/" }}\""
         )
-        buildConfigField("String", "SUPABASE_URL", "\"${localProperty("supabase.url")}\"")
-        buildConfigField("String", "SUPABASE_ANON_KEY", "\"${localProperty("supabase.anonKey")}\"")
+    }
+
+    signingConfigs {
+        // The release build is signed with the debug key so it can be
+        // installed and profiled locally. A debug build is not representative
+        // of runtime performance: it is debuggable, skips R8, and runs Compose
+        // with extra instrumentation. Replace this before any real
+        // distribution.
+        create("localRelease") {
+            val debugStore = File(System.getProperty("user.home"), ".android/debug.keystore")
+            if (debugStore.exists()) {
+                storeFile = debugStore
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
     }
 
     buildTypes {
         release {
+            // Minification stays off: Retrofit and Gson resolve the network
+            // models reflectively, so enabling R8 needs keep rules that have
+            // not been written or tested yet. The measurable win here comes
+            // from the build no longer being debuggable.
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.getByName("localRelease")
         }
     }
     compileOptions {
@@ -108,15 +132,10 @@ dependencies {
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 
-    // Networking -- used for BOTH the local ML server and Supabase's REST API.
-    // Supabase is reached over plain REST (PostgREST + GoTrue) rather than the
-    // Supabase Kotlin SDK, so there is no extra dependency and no Ktor stack.
+    // Networking -- the ML server's REST API.
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
-
-    // Encrypted storage for the Supabase session token.
-    implementation("androidx.security:security-crypto:1.1.0")
 
     // ViewModel + Compose integration
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")

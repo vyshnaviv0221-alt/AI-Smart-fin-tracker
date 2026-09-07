@@ -1,7 +1,21 @@
-fastapi==0.115.0
-uvicorn[standard]==0.30.6
-scikit-learn==1.5.2
-joblib==1.4.2
-pandas==2.2.2
-numpy==1.26.4
-pydantic==2.9.2
+# Requires Python 3.11 or newer.
+#
+# These are the versions the committed models were trained and served with,
+# verified by `pip freeze` against a working environment. The previous pins
+# (numpy 1.26.4, scikit-learn 1.5.2, pandas 2.2.2, fastapi 0.115.0) were
+# never installable here -- numpy 1.26.4 has no wheel for current Python --
+# so `pip install -r requirements.txt` failed on a fresh clone, and the
+# scikit-learn pin did not match the version that wrote the .joblib files.
+# Loading a model across a scikit-learn major version is not supported.
+
+fastapi==0.141.1
+uvicorn[standard]==0.52.4
+scikit-learn==1.9.0
+joblib==1.6.0
+pandas==3.0.5
+numpy==2.5.2
+pydantic==2.13.5
+
+# tests
+pytest==9.1.1
+httpx==0.28.1

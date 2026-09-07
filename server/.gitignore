@@ -1,10 +1,34 @@
-# Trained models are generated output -- regenerate with:
-#   python train_server_models.py
-models/*.joblib
-models/*.json
+# Trained models.
+#
+# These ARE tracked, deliberately. They are what the server loads at startup,
+# and committing them means a clone runs immediately instead of needing a
+# training pass first -- which matters when the person cloning is marking the
+# project rather than developing it.
+#
+# The whole set is ~5 MB, fine for ordinary git objects. Do NOT put them in
+# Git LFS: LFS has already destroyed data in this repository twice, leaving
+# three-line pointer files where the content should be.
+#
+# They must stay in step with the scikit-learn pin in requirements.txt (1.9.0),
+# because a model saved by one major version does not reliably load in another.
+# `python train_server_models.py` rebuilds all of them, and render.yaml runs it
+# during deployment so a hosted instance always trains against its own
+# installed version rather than trusting these files.
+models/*
+!models/categorizer.joblib
+!models/anomaly.joblib
+!models/anomaly_category_stats.json
+!models/forecaster.joblib
+!models/forecaster_columns.json
+!models/daily_forecaster.joblib
+!models/provenance.json
+
+# Real user corrections -- training data, not source. Keep local.
+data/corrections.csv
 
 # Python
 __pycache__/
 *.py[cod]
 .venv/
 venv/
+.pytest_cache/

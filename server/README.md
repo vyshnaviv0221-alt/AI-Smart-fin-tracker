@@ -20,10 +20,10 @@ when ready (see "Using real data" below).
 ```bash
 pip install -r requirements.txt
 python train_server_models.py      # generates models/*.joblib (only needed once, or after retraining)
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8081
 ```
 
-Then open http://127.0.0.1:8000/docs for interactive API docs.
+Then open http://127.0.0.1:8081/docs for interactive API docs.
 
 ## Endpoints
 

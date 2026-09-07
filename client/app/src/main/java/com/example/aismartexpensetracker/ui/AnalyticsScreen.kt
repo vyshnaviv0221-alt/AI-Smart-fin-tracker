@@ -1,6 +1,6 @@
 package com.example.aismartexpensetracker.ui
 
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.snap
 import androidx.compose.foundation.Canvas as DrawCanvas
 import androidx.compose.foundation.background
@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -98,15 +99,17 @@ fun AnalyticsScreen(viewModel: ExpenseViewModel = viewModel()) {
  */
 @Composable
 private fun DonutChart(slices: List<Slice>, total: Double) {
+    // Sweeps open the first time the chart is seen. rememberSaveable keeps
+    // that fact across navigation, so returning to Analytics shows the chart
+    // already drawn instead of replaying the reveal on every visit.
     val reduced = LocalReducedMotion.current
-    var started by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { started = true }
-
-    val sweep by animateFloatAsState(
-        targetValue = if (started) 1f else 0f,
-        animationSpec = if (reduced) snap() else Motion.gentle(),
-        label = "donutSweep"
-    )
+    var hasRevealed by rememberSaveable { mutableStateOf(false) }
+    val sweepAnim = remember { Animatable(if (hasRevealed) 1f else 0f) }
+    LaunchedEffect(reduced) {
+        if (reduced) sweepAnim.snapTo(1f) else sweepAnim.animateTo(1f, Motion.gentle())
+        hasRevealed = true
+    }
+    val sweep = sweepAnim.value
 
     val strokeWidth = 26.dp
     val gapDegrees = if (slices.size > 1) 2.5f else 0f

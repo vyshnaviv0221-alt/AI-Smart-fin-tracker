@@ -2,6 +2,7 @@ package com.example.aismartexpensetracker
 
 import android.util.Log
 import com.example.aismartexpensetracker.network.ApiService
+import com.example.aismartexpensetracker.network.CorrectionRequest
 import com.example.aismartexpensetracker.network.PredictionRequest
 import com.example.aismartexpensetracker.network.RetrofitClient
 import com.example.aismartexpensetracker.network.TransactionRequest
@@ -84,13 +85,23 @@ object ExpenseRepository {
 
             val result = api.categorize(request)
             // Take the server's answer when it is reasonably confident, or
-            // whenever the keyword list had no opinion at all.
+            // whenever the keyword list had no opinion at all -- but only if it
+            // is a category this app actually knows. A retrained model can emit
+            // a label the client has never heard of, and an unknown category
+            // silently disappears from every chart, filter and budget that
+            // enumerates ALL_CATEGORIES: the money would be logged and then
+            // invisible. Falling back to the on-device guess is worse only in
+            // accuracy, not in correctness.
             val keywordAbstained = localCategory == CategoryKeywords.UNCATEGORIZED
-            if (result.confidence >= MIN_SERVER_CONFIDENCE || keywordAbstained) {
+            val known = result.category in CategoryKeywords.ALL_CATEGORIES
+            if (!known) {
+                Log.w(TAG, "Server returned unknown category '${result.category}'; keeping $localCategory")
+            }
+            if (known && (result.confidence >= MIN_SERVER_CONFIDENCE || keywordAbstained)) {
                 dao.updateCategory(newId, result.category)
                 finalCategory = result.category
                 Log.d(TAG, "Server refined -> ${result.category} (${result.confidence})")
-            } else {
+            } else if (known) {
                 Log.d(
                     TAG,
                     "Server confidence ${result.confidence} below threshold; keeping $localCategory"
@@ -108,6 +119,24 @@ object ExpenseRepository {
         }
 
         return CaptureResult.Saved(newId, finalCategory)
+    }
+
+    /**
+     * Reports a user's category correction to the server as training data.
+     *
+     * Best effort and deliberately silent: the correction is already saved in
+     * Room, so the user's view is correct whether or not the server is
+     * reachable. Failing to improve the model is not a reason to bother them.
+     */
+    suspend fun reportCorrection(merchant: String, category: String, amount: Double) {
+        try {
+            val response = api.sendCorrection(
+                CorrectionRequest(merchant_text = merchant, category = category, amount = amount)
+            )
+            Log.d(TAG, "Correction sent: $merchant -> $category (${response.recorded} held)")
+        } catch (e: Exception) {
+            Log.i(TAG, "Could not send correction; it is still saved locally (${e.message})")
+        }
     }
 
     /**

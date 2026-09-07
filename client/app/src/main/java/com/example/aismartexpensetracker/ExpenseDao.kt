@@ -34,10 +34,6 @@ interface ExpenseDao {
     @Query("DELETE FROM expenses WHERE id = :id")
     suspend fun deleteExpense(id: Int)
 
-    /** Rows changed since the last successful sync. */
-    @Query("SELECT * FROM expenses WHERE updatedAt > :since ORDER BY updatedAt ASC LIMIT :limit")
-    suspend fun getChangedSince(since: Long, limit: Int = 500): List<Expense>
-
     /**
      * Duplicate check for automatically captured notifications.
      *

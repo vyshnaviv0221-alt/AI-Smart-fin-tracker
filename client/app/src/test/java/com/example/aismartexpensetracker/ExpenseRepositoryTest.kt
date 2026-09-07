@@ -45,9 +45,6 @@ class ExpenseRepositoryTest {
             rows.removeAll { it.id == id }
         }
 
-        override suspend fun getChangedSince(since: Long, limit: Int): List<Expense> =
-            rows.filter { it.updatedAt > since }.take(limit)
-
         override suspend fun countRecentDuplicates(
             merchant: String,
             amount: Double,

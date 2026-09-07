@@ -12,9 +12,6 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import com.example.aismartexpensetracker.cloud.CloudResult
-import com.example.aismartexpensetracker.cloud.SessionStore
-import com.example.aismartexpensetracker.cloud.SupabaseClient
 import java.util.Calendar
 
 /** Spend in one category over the period being shown. */
@@ -63,13 +60,6 @@ sealed interface AddResult {
     data class Duplicate(val merchant: String) : AddResult
 }
 
-/** Result of the most recent cloud action, for the UI to show. */
-sealed interface CloudState {
-    data object Idle : CloudState
-    data object Busy : CloudState
-    data class Message(val text: String, val isError: Boolean) : CloudState
-}
-
 sealed interface ForecastState {
     data object Idle : ForecastState
     data object Loading : ForecastState
@@ -82,7 +72,6 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
     private val db = AppDatabase.getDatabase(application)
     private val dao = db.expenseDao()
     private val budgetDao = db.budgetDao()
-    private val sessionStore = SessionStore(application)
 
     /** Everything below derives from these two Flows. Nothing is hardcoded. */
     val expenses: StateFlow<List<Expense>> = dao.getAllExpenses()
@@ -168,17 +157,8 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
     private val _forecastState = MutableStateFlow<ForecastState>(ForecastState.Idle)
     val forecastState: StateFlow<ForecastState> = _forecastState
 
-    private val _signedInEmail = MutableStateFlow(sessionStore.email)
-    val signedInEmail: StateFlow<String?> = _signedInEmail
-
     private val _addResult = MutableStateFlow<AddResult?>(null)
     val addResult: StateFlow<AddResult?> = _addResult
-
-    private val _cloudState = MutableStateFlow<CloudState>(CloudState.Idle)
-    val cloudState: StateFlow<CloudState> = _cloudState
-
-    /** False when local.properties has no Supabase entries. */
-    val cloudConfigured: Boolean get() = SupabaseClient.isConfigured
 
     // ---------------- actions ----------------
 
@@ -211,7 +191,21 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
      * the correction propagates immediately.
      */
     fun correctCategory(expenseId: Int, newCategory: String) {
-        viewModelScope.launch { dao.updateCategory(expenseId, newCategory) }
+        viewModelScope.launch {
+            val before = dao.findById(expenseId)
+            dao.updateCategory(expenseId, newCategory)
+
+            // Send the verified label upstream so it becomes training data.
+            // Only when the category actually changed -- re-picking the same
+            // one is not new information.
+            if (before != null && before.category != newCategory) {
+                ExpenseRepository.reportCorrection(
+                    merchant = before.merchant,
+                    category = newCategory,
+                    amount = before.amount
+                )
+            }
+        }
     }
 
     fun setBudget(category: String, monthlyLimit: Double) {
@@ -267,87 +261,13 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
             } else {
                 ForecastState.Error(
                     "Could not reach the prediction server.\n" +
-                        "Start it with: uvicorn app.main:app --port 8000\n" +
-                        "On a phone, run: adb reverse tcp:8000 tcp:8000" +
+                        "Start it by running start-server.bat in the project folder.\n" +
+                        "It sets up the phone connection too." +
                         (lastError?.let { "\n\n($it)" } ?: "")
                 )
             }
         }
     }
-
-    // ---------------- cloud (Supabase) ----------------
-
-    fun signIn(email: String, password: String) = runAuth { 
-        SupabaseClient.signIn(sessionStore, email, password)
-    }
-
-    fun signUp(email: String, password: String) = runAuth {
-        SupabaseClient.signUp(sessionStore, email, password)
-    }
-
-    private fun runAuth(block: suspend () -> CloudResult<String>) {
-        viewModelScope.launch {
-            _cloudState.value = CloudState.Busy
-            when (val result = block()) {
-                is CloudResult.Ok -> {
-                    _signedInEmail.value = sessionStore.email
-                    _cloudState.value = CloudState.Message("Signed in", isError = false)
-                    syncNow()
-                }
-                is CloudResult.Failed ->
-                    _cloudState.value = CloudState.Message(result.message, isError = true)
-                CloudResult.NotConfigured ->
-                    _cloudState.value = CloudState.Message(
-                        "Supabase is not configured. Add supabase.url and supabase.anonKey " +
-                            "to client/local.properties, then rebuild.",
-                        isError = true
-                    )
-            }
-        }
-    }
-
-    fun signOut() {
-        viewModelScope.launch {
-            SupabaseClient.signOut(sessionStore)
-            _signedInEmail.value = null
-            _cloudState.value = CloudState.Idle
-        }
-    }
-
-    /**
-     * Pushes locally changed expenses to Supabase.
-     *
-     * Only rows modified since the last successful sync are sent, rather than
-     * the whole table every time. Corrections are included because
-     * updateCategory bumps `updatedAt`. Writes upsert on (user_id, syncId), so
-     * a retry after a partial failure is safe.
-     */
-    fun syncNow() {
-        if (!sessionStore.isSignedIn) return
-        viewModelScope.launch {
-            _cloudState.value = CloudState.Busy
-
-            val since = sessionStore.lastSyncedAt
-            val changed = dao.getChangedSince(since)
-            if (changed.isEmpty()) {
-                _cloudState.value = CloudState.Message("Already up to date", false)
-                return@launch
-            }
-
-            _cloudState.value = when (val result = SupabaseClient.syncExpenses(sessionStore, changed)) {
-                is CloudResult.Ok -> {
-                    // Watermark from the data actually sent, not "now", so a row
-                    // written while the request was in flight is not skipped.
-                    sessionStore.lastSyncedAt = changed.maxOf { it.updatedAt }
-                    CloudState.Message("Synced ${result.value} transactions", false)
-                }
-                is CloudResult.Failed -> CloudState.Message(result.message, true)
-                CloudResult.NotConfigured -> CloudState.Message("Supabase not configured", true)
-            }
-        }
-    }
-
-    fun clearCloudMessage() { _cloudState.value = CloudState.Idle }
 
     // ---------------- helpers ----------------
 

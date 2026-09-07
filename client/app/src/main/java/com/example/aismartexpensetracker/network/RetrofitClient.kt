@@ -11,29 +11,48 @@ object RetrofitClient {
 
     /**
      * Set with `server.baseUrl` in client/local.properties; defaults to
-     * http://127.0.0.1:8000/.
+     * http://127.0.0.1:8081/.
      *
-     *   REAL PHONE  -> http://127.0.0.1:8000/ plus `adb reverse tcp:8000 tcp:8000`,
+     *   REAL PHONE  -> http://127.0.0.1:8081/ plus `adb reverse tcp:8081 tcp:8081`,
      *                  which tunnels the phone's localhost to the laptop over USB.
      *                  This needs no Wi-Fi and is immune to networks that block
      *                  client-to-client traffic, so it is the reliable demo path.
-     *   EMULATOR    -> http://10.0.2.2:8000/  (the emulator's alias for the host)
-     *   SAME WI-FI  -> http://<laptop-LAN-IP>:8000/, with the server started as
-     *                  `uvicorn app.main:app --host 0.0.0.0 --port 8000`
+     *   EMULATOR    -> http://10.0.2.2:8081/  (the emulator's alias for the host)
+     *   SAME WI-FI  -> http://<laptop-LAN-IP>:8081/, with the server started as
+     *                  `uvicorn app.main:app --host 0.0.0.0 --port 8081`
      *
      * Cleartext HTTP is permitted only for these local hosts -- see
      * res/xml/network_security_config.xml.
      */
     const val BASE_URL: String = BuildConfig.ML_SERVER_URL
 
+    // BASIC, not BODY: BODY writes every merchant name and amount into
+    // logcat, which any app holding READ_LOGS on an older device can read.
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
-        level = HttpLoggingInterceptor.Level.BODY
+        level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BASIC
+                else HttpLoggingInterceptor.Level.NONE
     }
 
+    /**
+     * Timeouts sized for a free-tier host that sleeps, not for localhost.
+     *
+     * Render (and every comparable free tier) spins an idle service down and
+     * cold-starts it on the next request: process start, then loading three
+     * joblib models. Measured against the old 10-second read timeout, the
+     * FIRST request after an idle period always failed, and because the app
+     * treats an unreachable server as "keep the on-device category", that
+     * failure was silent -- the transaction just quietly missed the model.
+     *
+     * 60s read covers a cold start. The connect timeout stays short because
+     * failing to establish a TCP connection at all means genuinely offline,
+     * and there is no point making the user wait a minute to be told so.
+     */
     private val okHttpClient = OkHttpClient.Builder()
         .addInterceptor(loggingInterceptor)
-        .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(10, TimeUnit.SECONDS)
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(60, TimeUnit.SECONDS)
+        .callTimeout(75, TimeUnit.SECONDS)
+        .retryOnConnectionFailure(true)
         .build()
 
     val apiService: ApiService by lazy {

@@ -1,0 +1,38 @@
+# Render blueprint -- https://render.com/docs/blueprint-spec
+#
+# Deploy: Render dashboard > New > Blueprint > pick this repository.
+#
+# The models ARE committed under server/models/, so a clone runs without a
+# training pass. The build retrains them anyway: that guarantees they match
+# the scikit-learn actually installed here, and a model saved by one major
+# version does not reliably load in another.
+
+services:
+  - type: web
+    name: fintracker-ml
+    runtime: python
+    plan: free
+    rootDir: server
+    buildCommand: "pip install -r requirements.txt && python train_server_models.py"
+    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    healthCheckPath: /
+    envVars:
+      # numpy 2.5 / pandas 3.0 need a current interpreter; Render's default
+      # is older than this project expects.
+      - key: PYTHON_VERSION
+        value: "3.12.7"
+
+# ---------------------------------------------------------------------------
+# Two limitations of the free plan, both deliberate:
+#
+# 1. The disk is ephemeral. server/data/corrections.csv -- the labels users
+#    verify in the app -- is wiped on every restart and redeploy. Corrections
+#    still work within a running instance (they are recalled immediately and
+#    outrank the model), but they do not accumulate across restarts, so the
+#    model is not improved by them over time. Fixing this needs a persistent
+#    disk (paid) or an external database.
+#
+# 2. The service sleeps after ~15 minutes idle and cold-starts on the next
+#    request. The app's read timeout is 60s to cover this; see
+#    RetrofitClient. Hit the URL once before a demo to wake it.
+# ---------------------------------------------------------------------------

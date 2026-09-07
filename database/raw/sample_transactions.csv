@@ -1,3 +1,55 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:d5558cd419c8d46bdc958064cb97f963d1ea793866414c025906ec15033512ed
-size 14
+merchant_text,amount,category
+Swiggy Bangalore,450,Food
+Zomato Order,320,Food
+McDonalds India,280,Food
+Domino's Pizza,600,Food
+Starbucks Coffee,220,Food
+BigBasket Groceries,1200,Groceries
+DMart Retail,850,Groceries
+Reliance Fresh,650,Groceries
+More Supermarket,540,Groceries
+Uber Trip,180,Travel
+Ola Cabs,150,Travel
+IRCTC Railways,1200,Travel
+IndiGo Airlines,4500,Travel
+Rapido Bike,60,Travel
+Amazon Shopping,2200,Shopping
+Flipkart Order,1800,Shopping
+Myntra Fashion,1500,Shopping
+Ajio Store,900,Shopping
+Electricity Board Bill,1400,Bills
+Airtel Postpaid,499,Bills
+Jio Recharge,299,Bills
+ACT Broadband,799,Bills
+Water Board Payment,300,Bills
+Apollo Pharmacy,350,Healthcare
+Practo Consultation,600,Healthcare
+Medplus Store,220,Healthcare
+PVR Cinemas,400,Entertainment
+BookMyShow Tickets,600,Entertainment
+Netflix Subscription,499,Entertainment
+Spotify Premium,119,Entertainment
+HDFC Mutual Fund SIP,5000,Investment
+Zerodha Trading,3000,Investment
+LIC Premium,2500,Investment
+Rent Payment Landlord,15000,Rent
+House Rent NEFT,14500,Rent
+Flat Rent Transfer,16000,Rent
+PhonePe to Friend,500,Transfer
+GPay Transfer,1000,Transfer
+Paytm Wallet Load,200,Transfer
+Decathlon Sports,1100,Shopping
+Cult Fit Membership,1499,Healthcare
+Urban Company Service,450,Bills
+Croma Electronics,3200,Shopping
+Cafe Coffee Day,180,Food
+KFC Order,350,Food
+Nature's Basket,700,Groceries
+Metro Cash and Carry,2100,Groceries
+Vistara Airlines,5200,Travel
+Ola Auto,90,Travel
+Nykaa Beauty,650,Shopping
+Tata Sky Recharge,350,Bills
+1mg Pharmacy,280,Healthcare
+INOX Movies,450,Entertainment
+Hotstar Subscription,299,Entertainment
