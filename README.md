@@ -69,8 +69,46 @@ cd client
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Finally, grant **notification access** to the app in Android Settings. Nothing
-is captured automatically without it.
+Finally, grant **notification access**. Nothing is captured automatically
+without it -- see the next section, because on some phones one setting is not
+enough.
+
+### Notification capture, and what phones do to it
+
+Automatic capture depends on a `NotificationListenerService`, which OEM
+Android skins treat as something to be shut down. Getting it working is three
+settings on some devices, one on others.
+
+**Every phone:** Settings > Apps > Special access > Notification access >
+enable *AI Smart Expense Tracker*.
+
+**Xiaomi / Redmi / POCO (MIUI) additionally need:**
+
+| Setting | Where | Why |
+|---|---|---|
+| **Autostart: ON** | Settings > Apps > Manage apps > this app | Without it MIUI kills the listener within minutes. Capture works briefly, then silently stops. |
+| **Battery saver: No restrictions** | same screen | Otherwise the service is killed under memory pressure. |
+
+Realme, Oppo and vivo have equivalents under Battery or Startup Manager. The
+symptom is always the same and always misleading: the app looks completely
+healthy and simply never captures anything.
+
+**Which apps are listened to.** `ExpenseNotificationListener` filters on the
+posting package, so a payment or bank app that is not in `PAYMENT_APP_PACKAGES`
+is ignored. The list covers the major UPI apps, the messaging apps of every
+common OEM (most Indian bank alerts arrive as SMS), and around fifteen banks.
+A missing entry means that phone captures nothing while appearing fine, so the
+list is deliberately generous -- `ExpenseParser` still requires a transaction
+verb, which is what keeps ordinary messages out.
+
+If capture does nothing, this names the app that actually posted the alert:
+
+```bash
+adb logcat -s ExpenseNotificationListener:V
+```
+
+An ignored package, an empty payload and a parse miss each log a distinct
+line, so the three can be told apart.
 
 ### Ports
 
@@ -276,7 +314,8 @@ one-sided, and a corrected merchant must never be re-guessed.
 
 ### End-to-end on a phone
 
-1. `start-server.bat`, then install the APK and grant notification access.
+1. `start-server.bat`, then install the APK and grant notification access
+   (plus Autostart on MIUI -- see Notification capture above).
 2. Make a real UPI payment, or add one with the `+` button.
 3. Confirm the transaction appears with a category and the total updates.
 4. **Stop the server and repeat.** The transaction must still appear,
@@ -293,6 +332,14 @@ one-sided, and a corrected merchant must never be re-guessed.
   the app loses it. This is a deliberate privacy trade-off, not an oversight.
 - **Real bank notification formats vary widely.** The parser will miss some.
   The human-in-the-loop correction is the designed answer to residual misses.
+- **OEM skins fight background services.** MIUI, ColorOS and Funtouch kill a
+  notification listener unless Autostart and battery exemptions are granted by
+  hand. The app cannot request those programmatically; they are documented
+  above instead.
+- **Notification text extraction is not unit tested.** `Bundle` is a framework
+  stub on the JVM, so `getString` and `getCharSequence` behave identically
+  there -- the difference between them, which decided whether capture worked at
+  all on a given phone, can only be reproduced with Robolectric or on a device.
 - **Cleartext HTTP on the local loopback** for USB/emulator development. A
   hosted server uses HTTPS.
 - **Release builds are not minified.** Retrofit and Gson resolve models
