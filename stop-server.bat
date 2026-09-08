@@ -16,11 +16,22 @@ echo.
 echo   Stopping ML server on port %PORT% ...
 
 set "FOUND="
+REM Only kill a python process. Something else listening on this port is not
+REM ours to stop, and killing it silently would be a nasty surprise.
 for /f "tokens=5" %%P in ('netstat -ano ^| findstr /r /c:"TCP .*:%PORT% .*LISTENING"') do (
     if not "%%P"=="0" (
-        taskkill /F /PID %%P >nul 2>&1
+        set "OWNER="
+        for /f "tokens=1 delims=," %%N in ('tasklist /fi "PID eq %%P" /fo csv /nh 2^>nul') do set "OWNER=%%~N"
+        echo !OWNER! | findstr /i "python" >nul
         if !errorlevel! equ 0 (
-            echo   Stopped process %%P.
+            taskkill /F /PID %%P >nul 2>&1
+            if !errorlevel! equ 0 (
+                echo   Stopped !OWNER! ^(PID %%P^).
+                set "FOUND=1"
+            )
+        ) else (
+            echo   Port %PORT% is held by !OWNER! ^(PID %%P^), which is not this server.
+            echo   Leaving it alone.
             set "FOUND=1"
         )
     )
@@ -45,5 +56,9 @@ if defined ADB (
 )
 
 echo.
-timeout /t 3 >nul
+REM Hold the window open briefly so a double-click is readable. `timeout`
+REM is not used: it reads the console and fails outright when stdin is
+REM redirected, which is exactly what happens when this is run from a
+REM script rather than by hand.
+ping -n 4 127.0.0.1 >nul 2>&1
 exit /b 0

@@ -32,6 +32,17 @@ with USB debugging on.
 
    Without this, nothing is captured automatically. The `+` button still works.
 
+5. **On Xiaomi / Redmi / POCO, two more settings are required.** MIUI kills a
+   notification listener within minutes otherwise, and the symptom is
+   misleading: the app looks perfectly healthy and simply never captures
+   anything.
+
+   Settings → Apps → Manage apps → *AI Smart Expense Tracker*:
+   - **Autostart: ON**
+   - **Battery saver: No restrictions**
+
+   Realme, Oppo and vivo have equivalents under Battery or Startup Manager.
+
 To stop everything: close the server window, or run **`stop-server.bat`**.
 
 ---
@@ -204,6 +215,8 @@ limitation lands better than a claim the code does not support.
 | `adb reverse` fails | Phone not authorised | Unplug, replug, accept the prompt, re-run `start-server.bat` |
 | `Address already in use` | Old server still running | `stop-server.bat` |
 | Nothing captured automatically | Notification access off | Settings → Notification access |
+| Captures on one phone, not another | OEM killed the listener | MIUI: Autostart ON + battery unrestricted (§1 step 5) |
+| Still nothing after both | The posting app is not allowlisted | `adb logcat -s ExpenseNotificationListener:V` names it |
 | Build fails on a fresh clone | Wrong Python | Needs 3.11+; `pip install -r server/requirements.txt` |
 | First request after idle fails (hosted) | Cold start | Open the URL once to wake it before demoing |
 

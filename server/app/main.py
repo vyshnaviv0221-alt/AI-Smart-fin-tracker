@@ -58,6 +58,14 @@ async def lifespan(app: FastAPI):
     yield
 
 
+# Bounds for the one endpoint that accepts a public write. A real merchant
+# string off a bank notification is well under 200 characters, and no single
+# transaction in this dataset approaches ten crore -- these exist to stop an
+# unbounded string or absurd value being appended to the training file, not to
+# constrain genuine input.
+MAX_MERCHANT_LEN = 200
+MAX_AMOUNT = 100_000_000.0
+
 app = FastAPI(
     title="AI Smart Finance Tracker API",
     description="Backend server for the AI Smart Finance Tracker Android app.",
@@ -79,7 +87,7 @@ def _require_models() -> None:
 
 
 @app.get("/")
-async def health():
+def health():
     """Health check — also reports whether the models loaded correctly."""
     ready = model_loader.models_ready()
     return {
@@ -104,7 +112,7 @@ def _provenance() -> dict:
 
 
 @app.post("/categorize", response_model=CategoryResponse)
-async def categorize_transaction(req: TransactionRequest):
+def categorize_transaction(req: TransactionRequest):
     """Classifies merchant_text into one of the known spending categories."""
     _require_models()
     if not req.merchant_text.strip():
@@ -121,7 +129,7 @@ async def categorize_transaction(req: TransactionRequest):
 
 
 @app.post("/anomaly", response_model=AnomalyResponse)
-async def detect_anomaly(req: TransactionRequest):
+def detect_anomaly(req: TransactionRequest):
     """
     Flags whether an amount is unusual *for its category*.
 
@@ -146,7 +154,7 @@ async def detect_anomaly(req: TransactionRequest):
 
 
 @app.post("/predict", response_model=PredictionResponse)
-async def predict_expense(req: PredictionRequest):
+def predict_expense(req: PredictionRequest):
     """Predicts expected spend for a given category."""
     _require_models()
     if not 1 <= req.month <= 12:
@@ -163,7 +171,7 @@ async def predict_expense(req: PredictionRequest):
 
 
 @app.post("/forecast/daily", response_model=DailyForecastResponse)
-async def forecast_daily(req: DailyForecastRequest):
+def forecast_daily(req: DailyForecastRequest):
     """
     Projects the next few days of total spend from the caller's recent daily
     totals, using the RandomForest trained in model/training/predict_expense.py.
@@ -217,7 +225,7 @@ async def forecast_daily(req: DailyForecastRequest):
 
 
 @app.post("/feedback/correction", response_model=CorrectionResponse)
-async def record_correction(req: CorrectionRequest):
+def record_correction(req: CorrectionRequest):
     """
     Records a category the user corrected in the app.
 
@@ -229,10 +237,33 @@ async def record_correction(req: CorrectionRequest):
     are only generated for categories short of real examples, every correction
     directly displaces generated data.
     """
+    _require_models()
+
+    # This endpoint is a public, unauthenticated write that feeds the training
+    # set and is recalled verbatim at confidence 1.0. Without these checks any
+    # caller could store an arbitrary label, or an unbounded string, in the
+    # data the model is next trained on.
+    category = req.category.strip()
+    allowed = model_loader.known_categories()
+    if category not in allowed:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown category '{category}'. Known categories: {allowed}",
+        )
+    if len(req.merchant_text.strip()) > MAX_MERCHANT_LEN:
+        raise HTTPException(
+            status_code=400,
+            detail=f"merchant_text must be {MAX_MERCHANT_LEN} characters or fewer",
+        )
+    if not 0 <= req.amount <= MAX_AMOUNT:
+        raise HTTPException(
+            status_code=400, detail=f"amount must be between 0 and {MAX_AMOUNT}"
+        )
+
     try:
         total = feedback_store.record_correction(
             merchant_text=req.merchant_text,
-            category=req.category,
+            category=category,
             amount=req.amount,
         )
     except ValueError as e:
@@ -243,6 +274,6 @@ async def record_correction(req: CorrectionRequest):
     counts = feedback_store.category_counts()
     return CorrectionResponse(
         recorded=total,
-        for_this_category=counts.get(req.category.strip(), 0),
+        for_this_category=counts.get(category, 0),
         message="Correction recorded. Re-run train_server_models.py to fold it in.",
     )

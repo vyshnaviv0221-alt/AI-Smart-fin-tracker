@@ -2,6 +2,9 @@ package com.example.aismartexpensetracker
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -110,5 +113,43 @@ class ExpenseRepositoryTest {
         val ids = dao.rows.map { it.syncId }
         assertEquals("sync ids must be unique per row", ids.size, ids.toSet().size)
         assertTrue(ids.none { it.isBlank() })
+    }
+
+    /**
+     * A DAO whose duplicate check suspends part-way through.
+     *
+     * This is what the real race looked like: a bank posts a notification and
+     * then updates it, onNotificationPosted fires twice, and the two coroutines
+     * both finished counting before either had inserted. The delay makes that
+     * interleaving deterministic instead of relying on timing.
+     */
+    private class SlowCheckDao : ExpenseDao by FakeDao() {
+        val inner = FakeDao()
+        override suspend fun insertExpense(expense: Expense): Long = inner.insertExpense(expense)
+        override suspend fun countRecentDuplicates(
+            merchant: String, amount: Double, since: Long
+        ): Int {
+            val count = inner.rows.count { it.merchant == merchant && it.amount == amount }
+            delay(20)   // the window the second coroutine used to slip through
+            return count
+        }
+        override suspend fun updateCategory(id: Int, category: String, now: Long) =
+            inner.updateCategory(id, category, now)
+        override suspend fun updateAnomalyFlag(id: Int, isAnomaly: Boolean, now: Long) =
+            inner.updateAnomalyFlag(id, isAnomaly, now)
+    }
+
+    @Test
+    fun `concurrent identical captures insert only one row`() = runBlocking {
+        // Regression guard. On a real device this produced twins 0ms, 9ms and
+        // 74ms apart -- all inside the 60s window meant to stop them -- and the
+        // user saw their spending total doubled.
+        val dao = SlowCheckDao()
+        listOf(
+            async { ExpenseRepository.captureExpense(dao, "GAYATHRI UDAYAN", 130.0, deduplicate = true) },
+            async { ExpenseRepository.captureExpense(dao, "GAYATHRI UDAYAN", 130.0, deduplicate = true) }
+        ).awaitAll()
+
+        assertEquals("a re-posted notification must not create a second row", 1, dao.inner.rows.size)
     }
 }

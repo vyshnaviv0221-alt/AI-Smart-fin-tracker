@@ -93,6 +93,21 @@ def models_ready() -> bool:
     )
 
 
+def known_categories() -> list[str]:
+    """
+    The labels the categorizer can actually emit.
+
+    Taken from the trained model rather than a hand-maintained constant, so it
+    cannot drift away from what the model knows after a retrain. Used to reject
+    corrections carrying a category that does not exist -- /feedback/correction
+    is a public write, and an arbitrary label there both poisons the training
+    set and is returned verbatim to clients afterwards.
+    """
+    if _categorizer is None:
+        return []
+    return sorted(str(c) for c in _categorizer.classes_)
+
+
 def predict_category(merchant_text: str, amount: float = 0.0) -> tuple[str, float, str]:
     """
     Returns (category, confidence 0-1, source).
