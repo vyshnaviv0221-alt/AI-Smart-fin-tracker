@@ -222,3 +222,44 @@ def test_daily_forecast_rejects_bad_horizon(client, days):
     assert client.post(
         "/forecast/daily", json={"recent_daily_totals": [100], "days_ahead": days}
     ).status_code == 400
+
+
+# --- the correction endpoint is a public write -------------------------------
+#
+# /feedback/correction takes no auth, feeds the training set, and is recalled
+# verbatim at confidence 1.0. These pin the input bounds that stop an arbitrary
+# label or an unbounded string being stored.
+
+def test_correction_rejects_unknown_category(client):
+    r = client.post(
+        "/feedback/correction",
+        json={"merchant_text": "Some Shop", "category": "NotACategory", "amount": 10},
+    )
+    assert r.status_code == 400
+    assert "Unknown category" in r.json()["detail"]
+
+
+def test_correction_rejects_overlong_merchant(client):
+    r = client.post(
+        "/feedback/correction",
+        json={"merchant_text": "x" * 5000, "category": "Food", "amount": 10},
+    )
+    assert r.status_code == 400
+
+
+@pytest.mark.parametrize("amount", [-1, 1e12])
+def test_correction_rejects_absurd_amount(client, amount):
+    r = client.post(
+        "/feedback/correction",
+        json={"merchant_text": "Some Shop", "category": "Food", "amount": amount},
+    )
+    assert r.status_code == 400
+
+
+def test_correction_still_accepts_a_valid_label(client):
+    r = client.post(
+        "/feedback/correction",
+        json={"merchant_text": "Valid Shop Name", "category": "Food", "amount": 250},
+    )
+    assert r.status_code == 200
+    assert r.json()["for_this_category"] >= 1
