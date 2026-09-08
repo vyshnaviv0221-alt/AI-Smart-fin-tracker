@@ -1,6 +1,8 @@
 package com.example.aismartexpensetracker
 
 import android.util.Log
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import com.example.aismartexpensetracker.network.ApiService
 import com.example.aismartexpensetracker.network.CorrectionRequest
 import com.example.aismartexpensetracker.network.PredictionRequest
@@ -53,6 +55,23 @@ object ExpenseRepository {
     private val api: ApiService = RetrofitClient.apiService
 
     /**
+     * Serialises the duplicate check and the insert that follows it.
+     *
+     * Without this the two are a check-then-act race. A bank posts a
+     * notification and then updates it, so onNotificationPosted fires twice and
+     * launches two independent coroutines on Dispatchers.IO. Both ran
+     * countRecentDuplicates before either had inserted, both saw zero, and both
+     * inserted -- observed on a real device with the twins landing 0ms, 9ms and
+     * 74ms apart, all far inside the 60-second window that was supposed to
+     * catch them. The visible damage is a doubled spending total.
+     *
+     * A mutex rather than a unique index because the rows are not identical:
+     * they differ by timestamp and syncId, so there is no column set to
+     * constrain on. The critical section is two fast local queries.
+     */
+    private val captureLock = Mutex()
+
+    /**
      * @param deduplicate suppress a repeat of an identical recent capture.
      *   True for notifications, which genuinely arrive twice. **False for
      *   manual entry** -- if someone taps Add twice they mean two coffees, and
@@ -64,18 +83,23 @@ object ExpenseRepository {
         amount: Double,
         deduplicate: Boolean
     ): CaptureResult {
-        if (deduplicate) {
-            val since = System.currentTimeMillis() - DUPLICATE_WINDOW_MS
-            if (dao.countRecentDuplicates(merchant, amount, since) > 0) {
-                Log.d(TAG, "Duplicate suppressed: $merchant / $amount")
-                return CaptureResult.DuplicateIgnored
-            }
-        }
-
         val localCategory = CategoryKeywords.categorize(merchant)
-        val newId = dao.insertExpense(
-            Expense(amount = amount, merchant = merchant, category = localCategory)
-        ).toInt()
+
+        // The check and the insert must be atomic with respect to each other,
+        // or a duplicate slips through between them. Enrichment below stays
+        // outside the lock: it is network work and must not block capture.
+        val newId = captureLock.withLock {
+            if (deduplicate) {
+                val since = System.currentTimeMillis() - DUPLICATE_WINDOW_MS
+                if (dao.countRecentDuplicates(merchant, amount, since) > 0) {
+                    Log.d(TAG, "Duplicate suppressed: $merchant / $amount")
+                    return CaptureResult.DuplicateIgnored
+                }
+            }
+            dao.insertExpense(
+                Expense(amount = amount, merchant = merchant, category = localCategory)
+            ).toInt()
+        }
         Log.d(TAG, "Saved '$merchant' locally as $localCategory")
 
         var finalCategory = localCategory
