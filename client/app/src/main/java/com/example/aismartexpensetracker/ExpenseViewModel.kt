@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flow
@@ -243,18 +245,30 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
             // Calendar.MONTH is 0-based; the API expects 1-12.
             val nextMonth = (Calendar.getInstance().get(Calendar.MONTH) + 1) % 12 + 1
 
-            val results = mutableListOf<CategoryForecast>()
-            var lastError: String? = null
-
-            for (entry in spendByCategory) {
-                try {
-                    val predicted = ExpenseRepository.fetchForecast(nextMonth, entry.category)
-                    results += CategoryForecast(entry.category, entry.amount, predicted)
-                } catch (e: Exception) {
-                    // One unknown category must not blank the whole screen.
-                    lastError = e.message ?: e::class.java.simpleName
+            // Concurrently, not in sequence. There are up to ten categories, and
+            // OkHttp's call timeout is 75s to survive a hosted cold start -- so
+            // a serial loop against an unreachable server made the user watch a
+            // spinner for up to 12 minutes before any error appeared. In
+            // parallel the worst case is one timeout, and the common case is
+            // one cold start instead of ten round trips.
+            val outcomes = spendByCategory.map { entry ->
+                async {
+                    runCatching {
+                        CategoryForecast(
+                            entry.category,
+                            entry.amount,
+                            ExpenseRepository.fetchForecast(nextMonth, entry.category)
+                        )
+                    }
                 }
-            }
+            }.awaitAll()
+
+            val results = outcomes.mapNotNull { it.getOrNull() }
+            // One unknown category must not blank the whole screen; only report
+            // a failure when nothing at all came back.
+            val lastError = outcomes.firstOrNull { it.isFailure }
+                ?.exceptionOrNull()
+                ?.let { it.message ?: it::class.java.simpleName }
 
             _forecastState.value = if (results.isNotEmpty()) {
                 ForecastState.Ready(nextMonth, results)
