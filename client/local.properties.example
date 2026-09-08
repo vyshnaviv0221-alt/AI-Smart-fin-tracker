@@ -8,4 +8,4 @@
 #   emulator                                  -> http://10.0.2.2:8081/
 #   same Wi-Fi                                -> http://<laptop-LAN-IP>:8081/
 #   hosted                                    -> https://your-service.onrender.com/
-server.baseUrl=http://127.0.0.1:8081/
+server.baseUrl=https://fintracker-ml.onrender.com/
