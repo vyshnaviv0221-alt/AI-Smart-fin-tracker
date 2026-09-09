@@ -75,12 +75,21 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
     private val dao = db.expenseDao()
     private val budgetDao = db.budgetDao()
 
+    /**
+     * The Firebase UID of the currently signed-in user.
+     * Empty string when not signed in (should not normally reach this ViewModel
+     * in that state, because MainActivity blocks at the login screen).
+     */
+    private val currentUserId: String
+        get() = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: ""
+
     /** Everything below derives from these two Flows. Nothing is hardcoded. */
-    val expenses: StateFlow<List<Expense>> = dao.getAllExpenses()
+    val expenses: StateFlow<List<Expense>> = dao.getAllExpenses(currentUserId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val budgets: StateFlow<List<Budget>> = budgetDao.getAllBudgets()
+    val budgets: StateFlow<List<Budget>> = budgetDao.getAllBudgets(currentUserId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
 
     /**
      * Start of the current calendar month, re-emitted periodically.
@@ -176,7 +185,8 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
                 dao = dao,
                 merchant = merchant,
                 amount = amount,
-                deduplicate = false
+                deduplicate = false,
+                userId = currentUserId
             )
             _addResult.value = when (result) {
                 is CaptureResult.Saved -> AddResult.Added(merchant, result.category)
@@ -211,11 +221,11 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun setBudget(category: String, monthlyLimit: Double) {
-        viewModelScope.launch { budgetDao.setBudget(Budget(category, monthlyLimit)) }
+        viewModelScope.launch { budgetDao.setBudget(Budget(currentUserId, category, monthlyLimit)) }
     }
 
     fun clearBudget(category: String) {
-        viewModelScope.launch { budgetDao.clearBudget(category) }
+        viewModelScope.launch { budgetDao.clearBudget(category, currentUserId) }
     }
 
     fun deleteExpense(expenseId: Int) {

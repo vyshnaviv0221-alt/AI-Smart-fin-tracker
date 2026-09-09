@@ -16,8 +16,11 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.IntOffset
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -25,6 +28,7 @@ import androidx.navigation.compose.rememberNavController
 import com.example.aismartexpensetracker.ui.AnalyticsScreen
 import com.example.aismartexpensetracker.ui.BudgetScreen
 import com.example.aismartexpensetracker.ui.DashboardScreen
+import com.example.aismartexpensetracker.ui.LoginScreen
 import com.example.aismartexpensetracker.ui.MenuScreen
 import com.example.aismartexpensetracker.ui.PredictionsScreen
 import com.example.aismartexpensetracker.ui.ProfileScreen
@@ -57,10 +61,13 @@ class MainActivity : ComponentActivity() {
  * Route names match the strings MenuScreen navigates to.
  *
  * The ExpenseViewModel is created once here and passed to every screen.
- * Calling viewModel() inside each NavHost destination would instead scope a
- * separate instance to each back-stack entry: Room-backed data would still
- * agree (same database), but in-memory state -- forecast results, the
- * categorizing flag, the last add result -- would not.
+ * The AuthViewModel is also created at this level so auth state is shared
+ * across screens (ProfileScreen needs it for sign-out; LoginScreen for sign-in).
+ *
+ * Auth gate: the NavHost starts at "login" when no Firebase user is signed in,
+ * and at "dashboard" when one is. A LaunchedEffect observes user state so that
+ * a sign-out from ProfileScreen automatically redirects back to "login" without
+ * any additional wiring in the individual screens.
  *
  * Transitions are spatially symmetric: a screen entered by sliding in from
  * the right leaves back to the right. Something that arrives one way and
@@ -72,7 +79,18 @@ class MainActivity : ComponentActivity() {
 private fun AppNavHost() {
     val navController = rememberNavController()
     val vm: ExpenseViewModel = viewModel()
+    val authVm: AuthViewModel = viewModel()
     val reduced = LocalReducedMotion.current
+
+    // Observe auth state: redirect to login when the user signs out.
+    val user by authVm.user.collectAsStateWithLifecycle()
+    LaunchedEffect(user) {
+        if (user == null) {
+            navController.navigate("login") {
+                popUpTo(0) { inclusive = true }
+            }
+        }
+    }
 
     // The slide is a spring, not a tween. A spring animates from the value
     // currently on screen, so interrupting a transition -- swiping back while
@@ -87,9 +105,12 @@ private fun AppNavHost() {
     )
     val fade = tween<Float>(durationMillis = 180)
 
+    // Start at "login" when no user is signed in; otherwise go to "dashboard".
+    val startDestination = if (authVm.user.value != null) "dashboard" else "login"
+
     NavHost(
         navController = navController,
-        startDestination = "dashboard",
+        startDestination = startDestination,
         // Reduced motion keeps the transition legible as a cross-fade rather
         // than removing feedback entirely.
         enterTransition = {
@@ -109,6 +130,17 @@ private fun AppNavHost() {
             else slideOutHorizontally(slide) { full -> full / 3 } + fadeOut(fade)
         }
     ) {
+        composable("login") {
+            LoginScreen(authViewModel = authVm)
+            // Navigate to dashboard once sign-in succeeds.
+            LaunchedEffect(user) {
+                if (user != null) {
+                    navController.navigate("dashboard") {
+                        popUpTo("login") { inclusive = true }
+                    }
+                }
+            }
+        }
         composable("dashboard") { DashboardScreen(navController = navController, viewModel = vm) }
         composable("menu") { MenuScreen(navController) }
         composable("transactions") { TransactionsScreen(viewModel = vm) }
@@ -116,6 +148,6 @@ private fun AppNavHost() {
         composable("analytics") { AnalyticsScreen(viewModel = vm) }
         composable("predictions") { PredictionsScreen(viewModel = vm) }
         composable("recommendations") { RecommendationsScreen(viewModel = vm) }
-        composable("profile") { ProfileScreen(viewModel = vm) }
+        composable("profile") { ProfileScreen(viewModel = vm, authViewModel = authVm) }
     }
 }

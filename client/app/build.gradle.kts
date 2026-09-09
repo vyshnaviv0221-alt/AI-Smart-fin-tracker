@@ -4,6 +4,7 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
     id("com.google.devtools.ksp")
+    id("com.google.gms.google-services")
 }
 
 // server.baseUrl comes from local.properties, which is git-ignored, so a
@@ -142,4 +143,9 @@ dependencies {
 
     // Navigation -- required by ui/MenuScreen.kt and MainActivity's NavHost
     implementation("androidx.navigation:navigation-compose:2.10.0")
+
+    // Firebase -- Google Sign-In authentication
+    implementation(platform("com.google.firebase:firebase-bom:33.4.0"))
+    implementation("com.google.firebase:firebase-auth-ktx")
+    implementation("com.google.android.gms:play-services-auth:21.2.0")
 }

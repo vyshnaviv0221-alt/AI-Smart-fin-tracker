@@ -76,12 +76,15 @@ object ExpenseRepository {
      *   True for notifications, which genuinely arrive twice. **False for
      *   manual entry** -- if someone taps Add twice they mean two coffees, and
      *   silently dropping the second is data loss the user cannot see.
+     * @param userId Firebase UID of the signed-in user. Every row is tagged
+     *   with this so queries can filter to one account's data.
      */
     suspend fun captureExpense(
         dao: ExpenseDao,
         merchant: String,
         amount: Double,
-        deduplicate: Boolean
+        deduplicate: Boolean,
+        userId: String = ""
     ): CaptureResult {
         val localCategory = CategoryKeywords.categorize(merchant)
 
@@ -91,13 +94,13 @@ object ExpenseRepository {
         val newId = captureLock.withLock {
             if (deduplicate) {
                 val since = System.currentTimeMillis() - DUPLICATE_WINDOW_MS
-                if (dao.countRecentDuplicates(merchant, amount, since) > 0) {
+                if (dao.countRecentDuplicates(merchant, amount, since, userId) > 0) {
                     Log.d(TAG, "Duplicate suppressed: $merchant / $amount")
                     return CaptureResult.DuplicateIgnored
                 }
             }
             dao.insertExpense(
-                Expense(amount = amount, merchant = merchant, category = localCategory)
+                Expense(amount = amount, merchant = merchant, category = localCategory, userId = userId)
             ).toInt()
         }
         Log.d(TAG, "Saved '$merchant' locally as $localCategory")

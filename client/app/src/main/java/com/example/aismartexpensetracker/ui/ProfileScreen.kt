@@ -9,6 +9,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ExitToApp
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -21,7 +23,9 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.aismartexpensetracker.AuthViewModel
 import com.example.aismartexpensetracker.ExpenseViewModel
 import com.example.aismartexpensetracker.ui.components.*
 import com.example.aismartexpensetracker.ui.theme.*
@@ -31,11 +35,14 @@ private fun isListenerEnabled(context: Context): Boolean =
 
 @Composable
 fun ProfileScreen(
-    viewModel: ExpenseViewModel = viewModel()
+    viewModel: ExpenseViewModel = viewModel(),
+    authViewModel: AuthViewModel = viewModel()
 ) {
     val context = LocalContext.current
-    val stats by viewModel.profileStats.collectAsState()
+    val stats by viewModel.profileStats.collectAsStateWithLifecycle()
+    val user by authViewModel.user.collectAsStateWithLifecycle()
     var listenerEnabled by remember { mutableStateOf(isListenerEnabled(context)) }
+    var showSignOutDialog by remember { mutableStateOf(false) }
 
     // Re-check on resume: the user grants access in system Settings and returns.
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -49,6 +56,37 @@ fun ProfileScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
+    // Sign-out confirmation dialog
+    if (showSignOutDialog) {
+        AlertDialog(
+            onDismissRequest = { showSignOutDialog = false },
+            title = { Text("Sign out?", style = RowTitleStyle, color = Ink) },
+            text = {
+                Text(
+                    "Your transactions and budgets on this device will be cleared. " +
+                        "This cannot be undone.",
+                    style = BodyStyle,
+                    color = InkMuted
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showSignOutDialog = false
+                        authViewModel.signOut()
+                    }
+                ) {
+                    Text("Sign out", color = Danger, style = RowTitleStyle)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSignOutDialog = false }) {
+                    Text("Cancel", color = InkMuted, style = BodyStyle)
+                }
+            }
+        )
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -57,13 +95,55 @@ fun ProfileScreen(
             .padding(horizontal = Space.lg)
     ) {
         Spacer(Modifier.height(Space.sm))
-        ScreenTitle(text = "Profile", subtitle = "Storage and permissions")
+        ScreenTitle(text = "Profile", subtitle = "Account and permissions")
         Spacer(Modifier.height(Space.xl))
 
+        // ---- Signed-in user card ----
+        AppCard(Modifier.fillMaxWidth()) {
+            Row(
+                Modifier.padding(Space.xl),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    Modifier
+                        .size(52.dp)
+                        .clip(CircleShape)
+                        .background(Indigo500),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Rounded.Person,
+                        contentDescription = null,
+                        tint = SurfaceWhite
+                    )
+                }
+                Spacer(Modifier.width(Space.lg))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        user?.displayName ?: "Signed in",
+                        style = RowTitleStyle,
+                        color = Ink
+                    )
+                    Spacer(Modifier.height(Space.xxs))
+                    Text(
+                        user?.email ?: "",
+                        style = CaptionStyle,
+                        color = InkMuted
+                    )
+                }
+                IconButton(onClick = { showSignOutDialog = true }) {
+                    Icon(
+                        Icons.Rounded.ExitToApp,
+                        contentDescription = "Sign out",
+                        tint = Danger
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(Space.md))
+
         // ---- Where the data lives ----
-        // There is no account. Everything is in Room on this device, which is
-        // worth stating plainly: a user who sees no sign-in should know that
-        // means "private", not "not set up yet".
         AppCard(Modifier.fillMaxWidth()) {
             Row(Modifier.padding(Space.xl), verticalAlignment = Alignment.CenterVertically) {
                 Box(
@@ -84,7 +164,7 @@ fun ProfileScreen(
                     Text("Stored on this device", style = RowTitleStyle, color = Ink)
                     Spacer(Modifier.height(Space.xxs))
                     Text(
-                        "No account, no cloud. Your transactions never leave this phone.",
+                        "Data is scoped to your account and never leaves this phone.",
                         style = CaptionStyle,
                         color = InkMuted
                     )
@@ -128,7 +208,7 @@ fun ProfileScreen(
                 if (!listenerEnabled) {
                     Spacer(Modifier.height(Space.md))
                     Text(
-                        "Find “AI SMART EXPENSE TRACKER” in the list and enable it. " +
+                        "Find "AI SMART EXPENSE TRACKER" in the list and enable it. " +
                             "Only notifications from payment and banking apps are read; " +
                             "no credentials, PINs or OTPs are accessed.",
                         style = CaptionStyle,

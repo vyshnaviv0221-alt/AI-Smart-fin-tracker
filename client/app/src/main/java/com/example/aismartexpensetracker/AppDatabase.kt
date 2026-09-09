@@ -10,14 +10,15 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 /**
  * v3 added the `budgets` table and changed `expenses.amount` from TEXT to REAL.
  * v4 adds `syncId` + `updatedAt` and indexes `date`.
+ * v5 adds `userId` to both `expenses` and `budgets` for per-user data isolation.
  *
  * Versions 1 and 2 only ever existed on development machines -- the app had
  * never been installed anywhere -- so those are dropped rather than migrated.
  * From v3 onward every schema change gets a real Migration, because by then
  * the database holds automatically captured transactions the user cannot
- * recreate. MIGRATION_3_4 is that: it preserves every existing row.
+ * recreate. MIGRATION_3_4 and MIGRATION_4_5 preserve every existing row.
  */
-@Database(entities = [Expense::class, Budget::class], version = 4, exportSchema = false)
+@Database(entities = [Expense::class, Budget::class], version = 5, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun expenseDao(): ExpenseDao
@@ -49,6 +50,35 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Adds `userId` to both `expenses` and `budgets`.
+         *
+         * Old rows get an empty userId. Because sign-in clears local data
+         * (user's choice), these rows will be removed on first login anyway.
+         * The budgets table is recreated because SQLite does not support adding
+         * a column to a composite primary key in place.
+         */
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE expenses ADD COLUMN userId TEXT NOT NULL DEFAULT ''")
+                // Recreate budgets with the new composite PK (userId, category)
+                db.execSQL(
+                    """CREATE TABLE budgets_new (
+                        userId TEXT NOT NULL DEFAULT '',
+                        category TEXT NOT NULL,
+                        monthlyLimit REAL NOT NULL,
+                        PRIMARY KEY(userId, category)
+                    )"""
+                )
+                db.execSQL(
+                    "INSERT INTO budgets_new (userId, category, monthlyLimit) " +
+                        "SELECT '', category, monthlyLimit FROM budgets"
+                )
+                db.execSQL("DROP TABLE budgets")
+                db.execSQL("ALTER TABLE budgets_new RENAME TO budgets")
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -56,7 +86,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "expense_database"
                 )
-                    .addMigrations(MIGRATION_3_4)
+                    .addMigrations(MIGRATION_3_4, MIGRATION_4_5)
                     // Only the pre-release dev schemas are discarded.
                     .fallbackToDestructiveMigrationFrom(dropAllTables = true, 1, 2)
                     .build()
@@ -64,5 +94,6 @@ abstract class AppDatabase : RoomDatabase() {
                 instance
             }
         }
+
     }
 }

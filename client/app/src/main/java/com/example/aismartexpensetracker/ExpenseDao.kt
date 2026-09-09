@@ -11,8 +11,8 @@ interface ExpenseDao {
     @Insert
     suspend fun insertExpense(expense: Expense): Long
 
-    @Query("SELECT * FROM expenses ORDER BY date DESC")
-    fun getAllExpenses(): Flow<List<Expense>>
+    @Query("SELECT * FROM expenses WHERE userId = :userId ORDER BY date DESC")
+    fun getAllExpenses(userId: String): Flow<List<Expense>>
 
     @Query("SELECT * FROM expenses WHERE id = :id")
     suspend fun findById(id: Int): Expense?
@@ -34,6 +34,10 @@ interface ExpenseDao {
     @Query("DELETE FROM expenses WHERE id = :id")
     suspend fun deleteExpense(id: Int)
 
+    /** Delete all expenses belonging to a user -- called on sign-out to clear data. */
+    @Query("DELETE FROM expenses WHERE userId = :userId")
+    suspend fun deleteAllForUser(userId: String)
+
     /**
      * Duplicate check for automatically captured notifications.
      *
@@ -47,7 +51,13 @@ interface ExpenseDao {
         WHERE merchant = :merchant
           AND ABS(amount - :amount) < 0.005
           AND date >= :since
+          AND userId = :userId
         """
     )
-    suspend fun countRecentDuplicates(merchant: String, amount: Double, since: Long): Int
+    suspend fun countRecentDuplicates(
+        merchant: String,
+        amount: Double,
+        since: Long,
+        userId: String
+    ): Int
 }

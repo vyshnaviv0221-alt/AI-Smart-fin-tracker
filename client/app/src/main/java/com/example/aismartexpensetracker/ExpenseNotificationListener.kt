@@ -150,6 +150,7 @@ class ExpenseNotificationListener : NotificationListenerService() {
 
         // 2. Save locally and enrich, exactly as the manual "+" button does.
         val dao = AppDatabase.getDatabase(applicationContext).expenseDao()
+        val userId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: ""
         serviceScope.launch {
             // Deduplication is ON here: banks and UPI apps genuinely re-post
             // the same alert, and Android re-delivers notifications on update.
@@ -157,7 +158,8 @@ class ExpenseNotificationListener : NotificationListenerService() {
                 dao = dao,
                 merchant = parsed.merchant,
                 amount = parsed.amount,
-                deduplicate = true
+                deduplicate = true,
+                userId = userId
             )
         }
     }

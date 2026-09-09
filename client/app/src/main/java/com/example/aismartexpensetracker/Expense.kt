@@ -42,5 +42,12 @@ data class Expense(
     /**
      * Last local modification. Bumped on insert and on every update.
      */
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+
+    /**
+     * Firebase UID of the owner. Added in DB v5 to isolate data per user.
+     * The empty string means "created before auth was introduced" and is
+     * overwritten the first time the user signs in and the database is cleared.
+     */
+    val userId: String = ""
 )
